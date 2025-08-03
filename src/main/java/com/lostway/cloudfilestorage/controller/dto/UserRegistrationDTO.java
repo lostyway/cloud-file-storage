@@ -1,7 +1,7 @@
 package com.lostway.cloudfilestorage.controller.dto;
 
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * DTO который пользователь присылает при регистрации
@@ -10,7 +10,7 @@ import jakarta.validation.constraints.NotBlank;
  * @param password
  */
 public record UserRegistrationDTO(
-        @NotBlank @Min(3) String username,
-        @NotBlank @Min(3) String password
+        @NotBlank @Size(min = 3) String username,
+        @NotBlank @Size(min = 3) String password
 ) {
 }
