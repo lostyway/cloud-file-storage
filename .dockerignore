@@ -1,0 +1,33 @@
+# Исключаем сборочные артефакты
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Maven кэш (если случайно добавлен)
+.mvn/repository/
+
+# Операционная система
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+
+# Секреты (если вдруг)
+.env
+*.env

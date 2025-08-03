@@ -1,0 +1,39 @@
+services:
+  cloudfilestorage:
+    build: .
+    ports:
+      - '8081:8081'
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/filestorage
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    volumes:
+      - cloudfilestoragevolume:/app/data
+    restart: unless-stopped
+  postgres:
+    image: 'postgres:17'
+    environment:
+      POSTGRES_DB: filestorage
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - '5438:5432'
+    volumes:
+      - postgresvolume:/var/lib/postgresql/data
+    restart: always
+  redis:
+    image: 'redis:7.2-alpine'
+    ports:
+      - '6379:6379'
+    restart: always
+    volumes:
+      - redisvolume:/data
+volumes:
+  cloudfilestoragevolume:
+  postgresvolume:
+  redisvolume:
