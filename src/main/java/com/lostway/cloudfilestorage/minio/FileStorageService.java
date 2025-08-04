@@ -1,15 +1,15 @@
 package com.lostway.cloudfilestorage.minio;
 
+import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
-import com.lostway.cloudfilestorage.exception.dto.FileStorageException;
-import com.lostway.cloudfilestorage.exception.dto.FolderAlreadyExistsException;
-import com.lostway.cloudfilestorage.exception.dto.InvalidFolderPathException;
-import com.lostway.cloudfilestorage.exception.dto.ParentFolderNotFoundException;
+import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
+import com.lostway.cloudfilestorage.exception.dto.*;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +36,51 @@ public class FileStorageService {
             log.info("Инициализация бакета прошла успешно");
         } catch (Exception e) {
             log.error("Ошибка инициализации Minio бакета '{}'", bucketName, e);
+            throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
+        }
+    }
+
+    public StorageResourceDTO getInformationAboutResource(String path) {
+        try {
+            checkPath(path);
+
+            var stat = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(path)
+                            .build()
+            );
+            log.info("Получена инфа о файле: {}", stat);
+            return generateDTOFromTypeOfObject(path, stat);
+        } catch (ErrorResponseException e) {
+            if (e.errorResponse().code().equals("NoSuchKey")) {
+                try {
+                    var results = minioClient.listObjects(
+                            ListObjectsArgs.builder()
+                                    .bucket(bucketName)
+                                    .prefix(path.endsWith("/") ? path : path + "/")
+                                    .maxKeys(1)
+                                    .build()
+                    );
+
+                    for (var ignored : results) {
+                        return StorageFolderAnswerDTO.getDefault(path, getPathName(path));
+                    }
+
+                    throw new FileStorageNotFoundException("Ресурс не найден: " + path);
+                } catch (FileStorageNotFoundException listEx) {
+                    throw listEx;
+                } catch (Exception listEx) {
+                    log.error("Ошибка при попытке определить наличие папки '{}'", path, listEx);
+                    throw new FileStorageException("Ошибка при проверке папки", listEx);
+                }
+            } else {
+                throw new FileStorageException("Ошибка получения объекта", e);
+            }
+        } catch (InvalidFolderPathException | FileStorageException | FileStorageNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Ошибка при попытке получить информацию о файле '{}'", path, e);
             throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
         }
     }
@@ -102,8 +147,7 @@ public class FileStorageService {
 
             String parentFolders = checkAndGetParentFolders(folderPath);
 
-            String[] pathNameArr = folderPath.split("/");
-            String pathName = pathNameArr[pathNameArr.length - 1];
+            String pathName = getPathName(folderPath);
 
             try {
                 minioClient.statObject(
@@ -141,14 +185,14 @@ public class FileStorageService {
 
     /**
      * Проверяет, что: путь, начинается с буквы, цифры или _ (не с /),
-     *              <p>
-     *              состоит из сегментов, разделённых одиночными слэшами (/),
-     *              <p>
-     *              каждый сегмент — из букв, цифр, _ или -.
-     *              <p>
-     *              Путь не содержит:, // (двойные слэши), .. (ссылок на родительский каталог), . (ссылок на текущий каталог)
-     *              <p>
-     *              Путь заканчивается слэшем / (если это "папка")
+     * <p>
+     * состоит из сегментов, разделённых одиночными слэшами (/),
+     * <p>
+     * каждый сегмент — из букв, цифр, _ или -.
+     * <p>
+     * Путь не содержит:, // (двойные слэши), .. (ссылок на родительский каталог), . (ссылок на текущий каталог)
+     * <p>
+     * Путь заканчивается слэшем / (если это "папка")
      */
     private static void checkPath(String folderPath) {
         if (!folderPath.matches("^(?!.*//)(?!.*\\.{1,2})([\\w\\-]+/)*$")) {
@@ -194,5 +238,23 @@ public class FileStorageService {
 
     private boolean throwAsFileStorageException(ErrorResponseException e) {
         throw new FileStorageException("Ошибка проверки существования объекта", e);
+    }
+
+    private static String getPathName(String folderPath) {
+        String trimmedPath = folderPath.endsWith("/")
+                ? folderPath.substring(0, folderPath.length() - 1)
+                : folderPath;
+
+        String[] parts = trimmedPath.split("/");
+        return parts[parts.length - 1];
+    }
+
+    private static @NotNull StorageResourceDTO generateDTOFromTypeOfObject(String path, StatObjectResponse stat) {
+        if (path.trim().contains(".")) {
+            long size = stat.size();
+            return StorageAnswerDTO.getDefault(path, getPathName(path), size);
+        } else {
+            return StorageFolderAnswerDTO.getDefault(path, getPathName(path));
+        }
     }
 }

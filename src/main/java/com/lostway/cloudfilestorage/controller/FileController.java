@@ -1,6 +1,7 @@
 package com.lostway.cloudfilestorage.controller;
 
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
+import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,10 +15,11 @@ import static org.springframework.http.HttpStatus.CREATED;
 public class FileController {
     private final FileStorageService fileStorageService;
 
-//    @GetMapping("/resource/{path}")
-//    public String getInformationAboutResource(@PathVariable("path") String path) {
-//        return "Path is: " + path;
-//    }
+    @GetMapping("/resource/")
+    public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam String path) {
+        StorageResourceDTO result = fileStorageService.getInformationAboutResource(path);
+        return ResponseEntity.ok(result);
+    }
 
     @PostMapping("/directory/")
     public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam String pathFolder) {

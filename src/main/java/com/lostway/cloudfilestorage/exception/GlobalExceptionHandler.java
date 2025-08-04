@@ -46,6 +46,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Невалидный или отсутствующий путь к папке"));
     }
 
+    @ExceptionHandler(FileStorageNotFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleFileStorageNotFoundException(FileStorageNotFoundException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponseDTO("Ресурс не найден"));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         throwLogError(e);
