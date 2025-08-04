@@ -68,18 +68,6 @@ public class SecurityController {
         return ResponseEntity.ok(new UserLoginAnswerDTO(username));
     }
 
-    private Authentication setAndGetAuthentication(String login, String password, HttpServletRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(login, password));
-
-        SecurityContext securityContext = SecurityContextHolder.getContext();
-        securityContext.setAuthentication(authentication);
-
-        HttpSession session = request.getSession(true);
-        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
-        return authentication;
-    }
-
     /**
      * Коды ошибок:
      * <p>
@@ -94,13 +82,11 @@ public class SecurityController {
 
         if (session != null) {
             session.invalidate();
+            SecurityContextHolder.clearContext();
+            return ResponseEntity.noContent().build();
         } else {
             return ResponseEntity.status(UNAUTHORIZED).build();
         }
-
-        SecurityContextHolder.clearContext();
-
-        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -115,12 +101,25 @@ public class SecurityController {
     @GetMapping("/user/me")
     public ResponseEntity<UserLoginAnswerDTO> me() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
+        if (authentication == null
+                || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {
             return ResponseEntity.status(UNAUTHORIZED).build();
         }
 
         String username = authentication.getName();
         return ResponseEntity.status(OK).body(new UserLoginAnswerDTO(username));
+    }
+
+    private Authentication setAndGetAuthentication(String login, String password, HttpServletRequest request) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(login, password));
+
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        securityContext.setAuthentication(authentication);
+
+        HttpSession session = request.getSession(true);
+        session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
+        return authentication;
     }
 }

@@ -21,5 +21,4 @@ class TestcontainersConfiguration {
     GenericContainer<?> redisContainer() {
         return new GenericContainer<>(DockerImageName.parse("redis:7.2")).withExposedPorts(6379);
     }
-
 }
