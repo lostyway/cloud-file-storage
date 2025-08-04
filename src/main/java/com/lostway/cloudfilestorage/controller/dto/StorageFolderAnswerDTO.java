@@ -18,6 +18,6 @@ public class StorageFolderAnswerDTO implements StorageResourceDTO {
 
 
     public static StorageFolderAnswerDTO getDefault(String path, String name) {
-        return new StorageFolderAnswerDTO(path, name, FileType.DIRECTORY);
+        return new StorageFolderAnswerDTO(path == null ? "" : path, name, FileType.DIRECTORY);
     }
 }

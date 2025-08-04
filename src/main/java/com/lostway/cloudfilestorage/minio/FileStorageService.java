@@ -9,7 +9,6 @@ import io.minio.errors.ErrorResponseException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -42,7 +41,7 @@ public class FileStorageService {
 
     public StorageResourceDTO getInformationAboutResource(String path) {
         try {
-            checkPath(path);
+            checkFileOrFolderPath(path);
 
             var stat = minioClient.statObject(
                     StatObjectArgs.builder()
@@ -50,34 +49,16 @@ public class FileStorageService {
                             .object(path)
                             .build()
             );
-            log.info("Получена инфа о файле: {}", stat);
+            log.info("Получена информация о файле: {}", stat);
             return generateDTOFromTypeOfObject(path, stat);
         } catch (ErrorResponseException e) {
-            if (e.errorResponse().code().equals("NoSuchKey")) {
-                try {
-                    var results = minioClient.listObjects(
-                            ListObjectsArgs.builder()
-                                    .bucket(bucketName)
-                                    .prefix(path.endsWith("/") ? path : path + "/")
-                                    .maxKeys(1)
-                                    .build()
-                    );
-
-                    for (var ignored : results) {
-                        return StorageFolderAnswerDTO.getDefault(path, getPathName(path));
-                    }
-
-                    throw new FileStorageNotFoundException("Ресурс не найден: " + path);
-                } catch (FileStorageNotFoundException listEx) {
-                    throw listEx;
-                } catch (Exception listEx) {
-                    log.error("Ошибка при попытке определить наличие папки '{}'", path, listEx);
-                    throw new FileStorageException("Ошибка при проверке папки", listEx);
-                }
-            } else {
+            if (!e.errorResponse().code().equals("NoSuchKey")) {
                 throw new FileStorageException("Ошибка получения объекта", e);
             }
-        } catch (InvalidFolderPathException | FileStorageException | FileStorageNotFoundException e) {
+
+            return tryReturnAsFolder(path);
+
+        } catch (FileStorageNotFoundException | InvalidFolderPathException | FileStorageException e) {
             throw e;
         } catch (Exception e) {
             log.error("Ошибка при попытке получить информацию о файле '{}'", path, e);
@@ -143,7 +124,7 @@ public class FileStorageService {
                 folderPath = folderPath.concat("/");
             }
 
-            checkPath(folderPath);
+            checkFolderPath(folderPath);
 
             String parentFolders = checkAndGetParentFolders(folderPath);
 
@@ -194,9 +175,15 @@ public class FileStorageService {
      * <p>
      * Путь заканчивается слэшем / (если это "папка")
      */
-    private static void checkPath(String folderPath) {
+    private static void checkFolderPath(String folderPath) {
         if (!folderPath.matches("^(?!.*//)(?!.*\\.{1,2})([\\w\\-]+/)*$")) {
             throw new InvalidFolderPathException("Недопустимый путь к папке: " + folderPath);
+        }
+    }
+
+    private static void checkFileOrFolderPath(String path) {
+        if (!path.matches("^(?!.*//)(?!.*\\.{2,}/)(?!.*/\\.{1,2}$)([a-zA-Z0-9_\\-./]+(/[a-zA-Z0-9_\\-./]+)*)$")) {
+            throw new InvalidFolderPathException("Недопустимый путь: " + path);
         }
     }
 
@@ -249,12 +236,36 @@ public class FileStorageService {
         return parts[parts.length - 1];
     }
 
-    private static @NotNull StorageResourceDTO generateDTOFromTypeOfObject(String path, StatObjectResponse stat) {
-        if (path.trim().contains(".")) {
-            long size = stat.size();
-            return StorageAnswerDTO.getDefault(path, getPathName(path), size);
+    private StorageResourceDTO generateDTOFromTypeOfObject(String path, StatObjectResponse stat) {
+        if (stat.size() > 0) {
+            return StorageAnswerDTO.getDefault(path, getPathName(path), stat.size());
         } else {
-            return StorageFolderAnswerDTO.getDefault(path, getPathName(path));
+            return StorageFolderAnswerDTO.getDefault(checkAndGetParentFolders(path), getPathName(path));
+        }
+    }
+
+    private StorageFolderAnswerDTO tryReturnAsFolder(String path) {
+        try {
+            String folderPath = path.endsWith("/") ? path : path + "/";
+            checkAndGetParentFolders(folderPath);
+            var results = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucketName)
+                            .prefix(folderPath)
+                            .maxKeys(1)
+                            .build()
+            );
+
+            for (var ignored : results) {
+                return StorageFolderAnswerDTO.getDefault(getParentFolder(folderPath), getPathName(path));
+            }
+
+            throw new FileStorageNotFoundException("Ресурс не найден: " + path);
+        } catch (FileStorageNotFoundException | InvalidFolderPathException | ParentFolderNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Ошибка при попытке определить наличие папки '{}'", path, e);
+            throw new FileStorageException("Ошибка при проверке папки", e);
         }
     }
 }

@@ -7,6 +7,7 @@ import com.lostway.cloudfilestorage.controller.dto.UserRegistrationDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -24,6 +25,7 @@ class SecurityControllerTest extends IntegrationTest {
     private ObjectMapper objectMapper;
 
     @Test
+    @WithAnonymousUser
     public void whenSignOutIsInvalid() throws Exception {
         mockMvc.perform(post("/api/auth/sign-out"))
                 .andExpect(status().isUnauthorized());
@@ -45,6 +47,7 @@ class SecurityControllerTest extends IntegrationTest {
     }
 
     @Test
+    @WithAnonymousUser
     public void whenGetMeIsIncorrect() throws Exception {
         mockMvc.perform(get("/api/auth/user/me"))
                 .andExpect(status().isUnauthorized());

@@ -144,6 +144,7 @@
                         <exclude>com/lostway/cloudfilestorage/mapper/**</exclude>
                         <exclude>com/lostway/cloudfilestorage/exception/**</exclude>
                         <exclude>com/lostway/cloudfilestorage/security/**</exclude>
+                        <exclude>com/lostway/cloudfilestorage/controller/dto/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
