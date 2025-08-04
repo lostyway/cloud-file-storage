@@ -12,7 +12,7 @@ public class CloudFileStorageApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(CloudFileStorageApplication.class, args);
-        log.info("Application started on http://localhost:8081/start");
+        log.info("Application started on http://localhost:8081/swagger-ui/index.html");
     }
 
 }

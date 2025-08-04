@@ -11,7 +11,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -38,9 +37,6 @@ public class SecurityController {
      * 400 - ошибки валидации (пример - слишком короткий username)
      * 409 - username занят
      * 500 - неизвестная ошибка
-     *
-     * @param registrationDTO
-     * @return
      */
     @PostMapping("/sign-up")
     public ResponseEntity<UserRegistrationAnswerDTO> signUp(@RequestBody @Valid UserRegistrationDTO registrationDTO, HttpServletRequest request) {
@@ -55,9 +51,6 @@ public class SecurityController {
      * 400 - ошибки валидации (пример - слишком короткий username)
      * 401 - неверные данные (такого пользователя нет, или пароль неправильный)
      * 500 - неизвестная ошибка
-     *
-     * @param loginDTO
-     * @return
      */
     @PostMapping("/sign-in")
     public ResponseEntity<UserLoginAnswerDTO> signIn(@RequestBody @Valid UserLoginDTO loginDTO, HttpServletRequest request) {
@@ -73,8 +66,6 @@ public class SecurityController {
      * <p>
      * 401 - запрос исполняется неавторизованным юзером
      * 500 - неизвестная ошибка
-     *
-     * @return
      */
     @PostMapping("/sign-out")
     public ResponseEntity<Void> signOut(HttpServletRequest request) {
@@ -101,13 +92,9 @@ public class SecurityController {
     @GetMapping("/user/me")
     public ResponseEntity<UserLoginAnswerDTO> me() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            return ResponseEntity.status(UNAUTHORIZED).build();
-        }
 
         String username = authentication.getName();
+
         return ResponseEntity.status(OK).body(new UserLoginAnswerDTO(username));
     }
 

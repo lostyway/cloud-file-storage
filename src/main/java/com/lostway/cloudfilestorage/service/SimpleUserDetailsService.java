@@ -1,7 +1,7 @@
 package com.lostway.cloudfilestorage.service;
 
 import com.lostway.cloudfilestorage.controller.dto.UserRegistrationDTO;
-import com.lostway.cloudfilestorage.exception.UserAlreadyExistsException;
+import com.lostway.cloudfilestorage.exception.dto.UserAlreadyExistsException;
 import com.lostway.cloudfilestorage.repository.UserRepository;
 import com.lostway.cloudfilestorage.repository.entity.UserEntity;
 import com.lostway.cloudfilestorage.repository.entity.UserRole;

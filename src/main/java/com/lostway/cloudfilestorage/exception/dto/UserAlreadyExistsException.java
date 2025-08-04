@@ -1,4 +1,4 @@
-package com.lostway.cloudfilestorage.exception;
+package com.lostway.cloudfilestorage.exception.dto;
 
 public class UserAlreadyExistsException extends RuntimeException {
     public UserAlreadyExistsException(String message) {

@@ -16,7 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
     private final UserDetailsService userDetailsService;
 
     @Bean
@@ -24,7 +24,10 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("api/auth/**").permitAll()
+                        .requestMatchers(
+                                "api/auth/sign-in",
+                                "api/auth/sign-up")
+                        .permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -43,6 +46,8 @@ public class SecurityConfig {
                         .maxSessionsPreventsLogin(false)
                 )
                 .userDetailsService(userDetailsService)
+                .exceptionHandling(exHandler -> exHandler
+                        .authenticationEntryPoint(authenticationEntryPoint))
                 .build();
     }
 
