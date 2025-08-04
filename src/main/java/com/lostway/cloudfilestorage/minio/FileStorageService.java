@@ -10,6 +10,7 @@ import io.minio.errors.ErrorResponseException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -22,18 +23,19 @@ public class FileStorageService {
 
     private final MinioClient minioClient;
 
-    private static final String BUCKET_NAME = "files";
+    @Value("${minio.bucket.name}")
+    private String bucketName;
 
     @PostConstruct
     public void init() {
         try {
-            boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(BUCKET_NAME).build());
+            boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
             if (!found) {
-                minioClient.makeBucket(MakeBucketArgs.builder().bucket(BUCKET_NAME).build());
+                minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
             }
             log.info("Инициализация бакета прошла успешно");
         } catch (Exception e) {
-            log.error("Ошибка инициализации Minio бакета '{}'", BUCKET_NAME, e);
+            log.error("Ошибка инициализации Minio бакета '{}'", bucketName, e);
             throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
         }
     }
@@ -42,7 +44,7 @@ public class FileStorageService {
         try {
             minioClient.putObject(
                     PutObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(filename)
                             .stream(inputStream, -1, 10485760)
                             .contentType(contentType)
@@ -60,7 +62,7 @@ public class FileStorageService {
             log.info("Скачивание файла: {}", filename);
             return minioClient.getObject(
                     GetObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(filename)
                             .build()
             );
@@ -74,7 +76,7 @@ public class FileStorageService {
         try {
             minioClient.removeObject(
                     RemoveObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(filename)
                             .build()
             );
@@ -106,7 +108,7 @@ public class FileStorageService {
             try {
                 minioClient.statObject(
                         StatObjectArgs.builder()
-                                .bucket(BUCKET_NAME)
+                                .bucket(bucketName)
                                 .object(folderPath)
                                 .build()
                 );
@@ -119,7 +121,7 @@ public class FileStorageService {
 
             minioClient.putObject(
                     PutObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(folderPath)
                             .stream(new ByteArrayInputStream(new byte[0]), 0, -1)
                             .contentType("application/x-directory")
@@ -176,7 +178,7 @@ public class FileStorageService {
         try {
             minioClient.getObject(
                     GetObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
+                            .bucket(bucketName)
                             .object(parentFolder)
                             .build()
             );

@@ -14,10 +14,10 @@ import static org.springframework.http.HttpStatus.CREATED;
 public class FileController {
     private final FileStorageService fileStorageService;
 
-    @GetMapping("/resource/{path}")
-    public String getInformationAboutResource(@PathVariable("path") String path) {
-        return "Path is: " + path;
-    }
+//    @GetMapping("/resource/{path}")
+//    public String getInformationAboutResource(@PathVariable("path") String path) {
+//        return "Path is: " + path;
+//    }
 
     @PostMapping("/directory/")
     public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam String pathFolder) {

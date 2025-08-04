@@ -31,7 +31,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<ErrorResponseDTO> handleFileStorageException(FileStorageException e) {
         throwLogError(e);
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO("Папка уже существует"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO("Ошибка в файловой системе"));
     }
 
     @ExceptionHandler(ParentFolderNotFoundException.class)
