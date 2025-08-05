@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static com.lostway.cloudfilestorage.utils.MinioStorageUtils.getRootFolder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -51,13 +52,7 @@ class FileControllerTest extends IntegrationTest {
             "Hello, World".getBytes()
     );
 
-    @Autowired
-    private FileStorageService fileStorageService;
-
     private String rootFolder;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @BeforeEach
     void cleanMinioBucket() throws Exception {
@@ -83,7 +78,7 @@ class FileControllerTest extends IntegrationTest {
 
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        this.rootFolder = fileStorageService.getRootFolder();
+        this.rootFolder = getRootFolder();
     }
 
     @Nested

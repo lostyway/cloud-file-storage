@@ -4,22 +4,23 @@ import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
-import com.lostway.cloudfilestorage.security.CustomUserDetails;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
+import io.minio.messages.Item;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
-import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+
+import static com.lostway.cloudfilestorage.utils.MinioStorageUtils.*;
 
 @Service
 @RequiredArgsConstructor
@@ -62,11 +63,11 @@ public class FileStorageService {
         try {
 
             if (isFolderPath(path)) {
-                path = getNormilizePath(path);
+                path = getFullUserPath(path);
                 checkFolderPath(path);
                 return tryReturnAsFolder(path);
             } else {
-                path = getNormilizePath(path, true);
+                path = getFullUserPath(path);
                 validatePathToFile(path);
                 StatObjectResponse stat = getStatObjectResponse(path);
                 return generateDTOFromTypeOfObject(path, stat);
@@ -96,10 +97,10 @@ public class FileStorageService {
 
     public StorageFolderAnswerDTO createEmptyFolder(String folderPath) {
         try {
-            String normalPath = getNormilizePath(folderPath);
+            String normalPath = getFullUserPath(folderPath);
             validatePathAndCheckIsResourceAlreadyExists(normalPath, false);
             String parentFolders = checkAndGetParentFolders(normalPath);
-            String pathName = getFileName(normalPath);
+            String pathName = getNameFromPath(normalPath);
 
             makeEmptyFolder(normalPath);
             return StorageFolderAnswerDTO.getDefault(parentFolders, pathName);
@@ -123,8 +124,8 @@ public class FileStorageService {
 
     public StorageAnswerDTO uploadFile(String path, MultipartFile file) {
         try {
-            String filename = Paths.get(getOriginalFileName(file)).getFileName().toString();
-            String normalizedPath = getNormilizePath(path);
+            String filename = getNameFromPath(getOriginalFileName(file));
+            String normalizedPath = getFullUserPath(path);
             String objectName = normalizedPath + filename;
 
             validatePathAndCheckIsResourceAlreadyExists(objectName, true);
@@ -148,7 +149,7 @@ public class FileStorageService {
      */
     public void delete(String path) {
         try {
-            String pathWithUser = getNormilizePath(path);
+            String pathWithUser = getFullUserPath(path);
 
             if (!doesObjectExists(pathWithUser)) {
                 throw new FileStorageNotFoundException("Папка/Файл не существует");
@@ -172,7 +173,57 @@ public class FileStorageService {
      */
 
     public List<StorageResourceDTO> getFilesFromDirectory(String path) {
-        return null;
+
+        String fullPath = getFullUserPath(path);
+
+        if (!isFolderPath(fullPath)) {
+            throw new InvalidFolderPathException("Необходимо ввести путь к папке, а не файлу");
+        }
+
+        if (!checkAllMaybeAFolder(fullPath)) {
+            log.warn("Папка по пути: {} не существует", fullPath);
+            throw new FolderNotFoundException("Папка по указанному пути не существует");
+        }
+
+        return getAllResourcesInFolder(fullPath);
+    }
+
+    /**
+     * Получение информации о всех ресурсах в папке (не рекурсивно)
+     *
+     * @param fullPath путь до папки
+     * @return Все файлы в папке
+     */
+    private List<StorageResourceDTO> getAllResourcesInFolder(String fullPath) {
+        try {
+            var resources = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucketName)
+                            .prefix(fullPath)
+                            .delimiter("/")
+                            .build()
+            );
+
+            List<StorageResourceDTO> result = new ArrayList<>();
+            for (Result<Item> resource : resources) {
+
+                String fileName = resource.get().objectName();
+
+                if (fileName.isBlank() || fileName.equals(fullPath)) {
+                    continue;
+                }
+
+                if (resource.get().size() > 0) {
+                    result.add(StorageAnswerDTO.getDefault(fullPath, getNameFromPath(fileName), resource.get().size()));
+                } else {
+                    result.add(StorageFolderAnswerDTO.getDefault(fullPath, getNameFromPath(fileName)));
+                }
+            }
+
+            return result;
+        } catch (Exception e) {
+            throw new FileStorageException("Ошибка при попытке получить информацию о ресурсах в папке", e);
+        }
     }
 
     /**
@@ -182,6 +233,10 @@ public class FileStorageService {
      */
     @SneakyThrows
     private void makeEmptyFolder(String folderPath) {
+        if (doesObjectExists(folderPath)) {
+            return;
+        }
+
         minioClient.putObject(
                 PutObjectArgs.builder()
                         .bucket(bucketName)
@@ -191,28 +246,6 @@ public class FileStorageService {
                         .build()
         );
         log.debug("Пустая папка '{}' создана", folderPath);
-    }
-
-    /**
-     * Проверка пути до папки
-     *
-     * @param folderPath путь к папке (используется только для папок, для файлов не подойдет)
-     */
-    private static void checkFolderPath(String folderPath) {
-        if (!folderPath.matches("^(?!.*//)(?!.*\\.{1,2})([\\w\\-]+/)*$")) {
-            throw new InvalidFolderPathException("Недопустимый путь к папке: " + folderPath);
-        }
-    }
-
-    /**
-     * Проверка пути до файла
-     *
-     * @param path путь к файлу (используется только для файлов, для папок не подойдет)
-     */
-    private static void validatePathToFile(String path) {
-        if (!path.matches("^(?!.*//)(?!.*(?:^|/)\\.)(?!.*(?:^|/)\\.\\.)([a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+$")) {
-            throw new InvalidFolderPathException("Недопустимый путь: " + path);
-        }
     }
 
     /**
@@ -230,24 +263,6 @@ public class FileStorageService {
         }
 
         return parentFolder;
-    }
-
-
-    /**
-     * Возвращает путь до файла не включая этот файл<p>
-     * test/test2.txt --> rootFolder/test/
-     *
-     * @param folderPath путь до папки (включая файл)
-     * @return путь до папки, не включая сам файл/папку<p>
-     * test/test2.txt --> rootFolder/test/<p>
-     * test/test2/ --> rootFolder/test/
-     */
-    private String getParentFolders(String folderPath) {
-        int lastFlash = folderPath.lastIndexOf("/", folderPath.length() - 2);
-        if (lastFlash > 0) {
-            return folderPath.substring(0, lastFlash + 1);
-        }
-        return null;
     }
 
     /**
@@ -290,21 +305,6 @@ public class FileStorageService {
     }
 
     /**
-     * Получение имени папки/файла, исключая его путь.
-     *
-     * @param folderPath полный путь до папки/файла
-     * @return Имя файла/папки test/test2.txt --> test2.txt
-     */
-    private static String getFileName(String folderPath) {
-        String trimmedPath = folderPath.endsWith("/")
-                ? folderPath.substring(0, folderPath.length() - 1)
-                : folderPath;
-
-        String[] parts = trimmedPath.split("/");
-        return parts[parts.length - 1];
-    }
-
-    /**
      * Генерация DTO на вывод в зависимости от того файл это или папка
      *
      * @param path путь до ресурса
@@ -313,9 +313,9 @@ public class FileStorageService {
      */
     private StorageResourceDTO generateDTOFromTypeOfObject(String path, StatObjectResponse stat) {
         if (stat.size() > 0) {
-            return StorageAnswerDTO.getDefault(checkAndGetParentFolders(path), getFileName(path), stat.size());
+            return StorageAnswerDTO.getDefault(checkAndGetParentFolders(path), getNameFromPath(path), stat.size());
         } else {
-            return StorageFolderAnswerDTO.getDefault(checkAndGetParentFolders(path), getFileName(path));
+            return StorageFolderAnswerDTO.getDefault(checkAndGetParentFolders(path), getNameFromPath(path));
         }
     }
 
@@ -333,7 +333,7 @@ public class FileStorageService {
                 throw new FileStorageNotFoundException("Ресурс не найден: " + path);
             }
 
-            return StorageFolderAnswerDTO.getDefault(getParentFolders(path), getFileName(path));
+            return StorageFolderAnswerDTO.getDefault(getParentFolders(path), getNameFromPath(path));
 
         } catch (FileStorageNotFoundException | InvalidFolderPathException | ParentFolderNotFoundException |
                  CantGetUserContextIdException e) {
@@ -371,104 +371,11 @@ public class FileStorageService {
     }
 
     /**
-     * Получение корневой папки по userId из контекста.
-     *
-     * @return ID текущего пользователя
+     * Получение полного пути до ресурса пользователя
      */
-    public String getRootFolder() {
-        Long userId = getCurrentUserId();
-        return "user-" + userId + "-files/";
-    }
-
-    /**
-     * Получение полного пути.
-     *
-     * @param path путь без корневой папки.
-     * @return Полный путь с корневой папкой. Т.е. если было: /test/test2/ --> rootFolder/test/test2/
-     */
-    private String getFullPathForUser(String path) {
-        String sanitizedRelativePath = path.replaceAll("^/+", "");
-        return getRootFolder() + sanitizedRelativePath;
-    }
-
-    /**
-     * Получение userID текущего пользователя.
-     *
-     * @return UserID из контекста безопасности
-     */
-    private Long getCurrentUserId() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-
-        if (principal instanceof CustomUserDetails userDetails) {
-            return userDetails.getId();
-        }
-        throw new CantGetUserContextIdException("Аутентифицированный пользователь не найден или имеет неверный тип");
-    }
-
-    /**
-     * Проверка, является ли путь путем до папки или файла
-     *
-     * @param path путь до ресурса
-     * @return true --> это папка<p>
-     * false --> это файл
-     */
-    private boolean isFolderPath(String path) {
-        if (path.endsWith("/")) {
-            return true;
-        }
-
-        int lastSlashIndex = path.lastIndexOf('/');
-        String lastSegment = lastSlashIndex == -1 ? path : path.substring(lastSlashIndex + 1);
-
-        return !lastSegment.contains(".");
-    }
-
-
-    /**
-     * Получение нормализованного пути (путь уже с root папкой и правильными /)
-     *
-     * @param path   путь
-     * @param isFile это путь до файла? Если да, то / в конце проставляться не будет.
-     * @return Полный путь до ресурса
-     */
-    private String getNormilizePath(String path, boolean isFile) {
-        if (path == null || path.isBlank()) {
-            path = "";
-        }
-        path = getFullPathForUser(path);
-
-        if (!isFile) {
-            path = path.endsWith("/") ? path : path + "/";
-        }
-
-        return path;
-    }
-
-    /**
-     * Перегруженный метод. Получение полного пути до папки. Сделано для обратной совместимости.
-     *
-     * @param path путь
-     * @return Полный путь до ресурса
-     */
-    private String getNormilizePath(String path) {
-        if (path == null || path.isBlank()) {
-            path = "";
-        }
-        path = getFullPathForUser(path);
-
-        return path.endsWith("/") ? path : path + "/";
-    }
-
-    /**
-     * Получение полного имени ресурса
-     */
-    private String getOriginalFileName(MultipartFile file) {
-        String originalFileName = file.getOriginalFilename();
-
-        if (originalFileName == null || originalFileName.isBlank()) {
-            throw new IllegalArgumentException("Имя файла отсутствует");
-        }
-        return originalFileName;
+    private String getFullUserPath(String path) {
+        String newPath = getStandardFullRootFolder(path);
+        return isFolderPath(newPath) && !newPath.endsWith("/") ? newPath + "/" : newPath;
     }
 
     /**
@@ -505,6 +412,7 @@ public class FileStorageService {
 
     /**
      * Создание пустых папок по пути к ресурсу
+     *
      * @param path путь до ресурса
      */
     private void makeEmptyFoldersOnPathIfNeeded(String path) {
@@ -524,6 +432,7 @@ public class FileStorageService {
 
     /**
      * Удаление объекта
+     *
      * @param pathWithUser файл или папка. На основе решения что это будет выбран метод удаления
      */
     private void deleteObject(String pathWithUser) {
@@ -536,6 +445,7 @@ public class FileStorageService {
 
     /**
      * Удаление папки и всего содержимого
+     *
      * @param pathWithUser путь до папки
      */
     private void deleteFolder(String pathWithUser) {
@@ -566,6 +476,7 @@ public class FileStorageService {
 
     /**
      * Удаление файла
+     *
      * @param path путь до файла
      */
     public void deleteFile(String path) {

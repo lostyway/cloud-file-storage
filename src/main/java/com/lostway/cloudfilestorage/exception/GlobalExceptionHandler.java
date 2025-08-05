@@ -66,8 +66,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO(e.getMessage()));
     }
 
-    @ExceptionHandler(FileStorageNotFoundException.class)
-    public ResponseEntity<ErrorResponseDTO> handleFileStorageNotFoundException(FileStorageNotFoundException e) {
+    @ExceptionHandler({FileStorageNotFoundException.class, FolderNotFoundException.class})
+    public ResponseEntity<ErrorResponseDTO> handleFileStorageNotFoundException(RuntimeException e) {
         throwLogError(e);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponseDTO("Ресурс не найден"));
     }
