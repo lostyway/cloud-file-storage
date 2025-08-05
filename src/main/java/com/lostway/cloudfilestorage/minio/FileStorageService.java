@@ -98,18 +98,55 @@ public class FileStorageService {
         }
     }
 
-    public void deleteFile(String filename) {
+    public void delete(String path) {
+        if (!doesObjectExists(path)) {
+            throw new FileStorageNotFoundException("Папка/Файл не существует");
+        }
+
+        if (!path.endsWith("/")) {
+            deleteFile(path);
+        }
+
+        try {
+            var results = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucketName)
+                            .prefix(path)
+                            .recursive(true)
+                            .build()
+            );
+
+            for (var result : results) {
+                var item = result.get();
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(item.objectName())
+                                .build()
+                );
+                log.info("Удалён файл: {}", item.objectName());
+            }
+
+        } catch (FileStorageNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Ошибка при удалении директории '{}'", path, e);
+            throw new FileStorageException("Ошибка при удалении папки", e);
+        }
+    }
+
+    public void deleteFile(String path) {
         try {
             minioClient.removeObject(
                     RemoveObjectArgs.builder()
                             .bucket(bucketName)
-                            .object(filename)
+                            .object(path)
                             .build()
             );
-            log.info("Удаление файла: {}", filename);
+            log.info("Удалён файл: {}", path);
         } catch (Exception e) {
-            log.error("Произошла ошибка при удалении файла'{}'", filename, e);
-            throw new FileStorageException("Произошла ошибка при удалении файла", e);
+            log.error("Ошибка при удалении файла '{}'", path, e);
+            throw new FileStorageException("Ошибка при удалении файла", e);
         }
     }
 
@@ -206,13 +243,12 @@ public class FileStorageService {
     }
 
     private boolean doesObjectExists(String parentFolder) {
-        try {
-            minioClient.getObject(
-                    GetObjectArgs.builder()
-                            .bucket(bucketName)
-                            .object(parentFolder)
-                            .build()
-            );
+        try (InputStream ignored = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(parentFolder)
+                        .build()
+        )) {
             return true;
         } catch (ErrorResponseException e) {
             return e.errorResponse().code().equals("NoSuchKey")
@@ -238,7 +274,7 @@ public class FileStorageService {
 
     private StorageResourceDTO generateDTOFromTypeOfObject(String path, StatObjectResponse stat) {
         if (stat.size() > 0) {
-            return StorageAnswerDTO.getDefault(path, getPathName(path), stat.size());
+            return StorageAnswerDTO.getDefault(checkAndGetParentFolders(path), getPathName(path), stat.size());
         } else {
             return StorageFolderAnswerDTO.getDefault(checkAndGetParentFolders(path), getPathName(path));
         }

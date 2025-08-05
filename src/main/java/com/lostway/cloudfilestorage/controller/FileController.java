@@ -26,4 +26,10 @@ public class FileController {
         StorageFolderAnswerDTO result = fileStorageService.createEmptyFolder(pathFolder);
         return ResponseEntity.status(CREATED).body(result);
     }
+
+    @DeleteMapping("/resource/")
+    public ResponseEntity<Void> deleteResource(@RequestParam String path) {
+        fileStorageService.delete(path);
+        return ResponseEntity.noContent().build();
+    }
 }

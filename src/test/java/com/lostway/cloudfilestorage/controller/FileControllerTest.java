@@ -16,8 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.test.context.support.WithAnonymousUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -293,6 +292,118 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(jsonPath("$.path").value(""))
                     .andExpect(jsonPath("$.name").value("test"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+        }
+    }
+
+    @Nested
+    class deleteFolderOrFile {
+        String makeEmptyFolder = "/api/directory/";
+        String deleteApi = "/api/resource/";
+        String getInformation = "/api/resource/";
+
+        @Test
+        @WithAnonymousUser
+        void whenNotAuthorize() throws Exception {
+            mockMvc.perform(delete(deleteApi)
+                            .param("path", "test"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void whenDeleteFolderIsSuccessful() throws Exception {
+            mockMvc.perform(post(makeEmptyFolder)
+                            .param("pathFolder", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.name").value("test"));
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.name").value("test"));
+
+            mockMvc.perform(delete(deleteApi)
+                            .param("path", "test/"))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Ресурс не найден"));
+        }
+
+        @Test
+        void whenDeleteFolderIsFailedBecauseBadFlash() throws Exception {
+            mockMvc.perform(post(makeEmptyFolder)
+                            .param("pathFolder", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.name").value("test"));
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.name").value("test"));
+
+            mockMvc.perform(delete(deleteApi)
+                            .param("path", "test"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Ресурс не найден"));
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.name").value("test"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+        }
+
+        @Test
+        void whenDeleteFolderIsSuccessThenIncludeFoldersAreDeleted() throws Exception {
+            mockMvc.perform(post(makeEmptyFolder)
+                            .param("pathFolder", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.name").value("test"));
+
+            mockMvc.perform(post(makeEmptyFolder)
+                            .param("pathFolder", "test/test2"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.name").value("test2"));
+
+            mockMvc.perform(post(makeEmptyFolder)
+                            .param("pathFolder", "test/test3"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.name").value("test3"));
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test/test3"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.name").value("test3"));
+
+            mockMvc.perform(delete(deleteApi)
+                            .param("path", "test/"))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Ресурс не найден"));
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test/test2/"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
+
+            mockMvc.perform(get(getInformation)
+                            .param("path", "test/test3/"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
         }
     }
 
