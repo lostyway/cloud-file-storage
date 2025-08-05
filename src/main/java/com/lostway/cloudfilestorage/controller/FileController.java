@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 import static org.springframework.http.HttpStatus.CREATED;
 
 @RestController
@@ -46,4 +48,12 @@ public class FileController {
         StorageAnswerDTO result = fileStorageService.uploadFile(path, file);
         return ResponseEntity.status(CREATED).body(result);
     }
+
+    @GetMapping("/directory/")
+    public ResponseEntity<List<StorageResourceDTO>> getDirectoryFiles(@RequestParam(value = "path", required = false) String path) {
+        fileStorageService.createUserRootFolder();
+        List<StorageResourceDTO> result = fileStorageService.getFilesFromDirectory(path);
+        return ResponseEntity.ok(result);
+    }
+
 }

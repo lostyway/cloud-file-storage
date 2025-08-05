@@ -11,6 +11,7 @@ import io.minio.RemoveObjectArgs;
 import io.minio.Result;
 import io.minio.messages.Item;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,6 +87,7 @@ class FileControllerTest extends IntegrationTest {
     }
 
     @Nested
+    @DisplayName("Проверка метода создания пустой папки")
     class CreateEmptyFolderMethod {
 
         @Test
@@ -165,6 +167,7 @@ class FileControllerTest extends IntegrationTest {
     }
 
     @Nested
+    @DisplayName("Проверка метода получения информации о ресурсе")
     class GetInformationAboutResourceMethod {
 
         @Test
@@ -298,6 +301,7 @@ class FileControllerTest extends IntegrationTest {
     }
 
     @Nested
+    @DisplayName("Проверка метода удаления ресурса")
     class DeleteFolderOrFile {
 
         @Test
@@ -345,7 +349,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(jsonPath("$.name").value("test3"));
 
             mockMvc.perform(get(uploadOrGetInformation)
-                            .param("path", "test/test3"))
+                            .param("path", "test/test3/"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test3"));
@@ -372,6 +376,7 @@ class FileControllerTest extends IntegrationTest {
     }
 
     @Nested
+    @DisplayName("Проверка метода загрузки файла на сервер")
     class UploadFileMethod {
 
         @Test
@@ -384,9 +389,155 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(jsonPath("$.name").value("test.txt"))
                     .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
         }
+
+        @Test
+        void whenSuccessInFolder() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+        }
+
+        @Test
+        void whenSuccessInFolder2() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+        }
+
+        @Test
+        void whenSuccessInFolder3() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/qwe")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/qwe/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+        }
+
+        @Test
+        void whenSuccessInFolderWithIncorrectPath() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/./qwe")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
+        }
+
+        @Test
+        void whenSuccessInFolderWithIncorrectFileType() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/fel.txt")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
+        }
+
+        @Test
+        void whenSuccessInFolderSuccessful() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"));
+        }
+
+        @Test
+        void whenDublicateInOneFolder() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value("Ресурс по такому пути уже существует!"));
+
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"));
+        }
+
+        @Test
+        void whenDublicateInDifferentFoldersThenSuccess() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/qwe")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/qwe/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/qwe/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/qwe/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"));
+        }
     }
 
     @Nested
+    @DisplayName("Проверка методов под неавторизованным пользователем")
     class WithAnonumUser {
 
         @BeforeEach

@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO("Неверный логин или пароль"));
     }
 
-    @ExceptionHandler({FolderAlreadyExistsException.class, FileInStorageAlreadyExists.class})
+    @ExceptionHandler({FolderAlreadyExistsException.class, ResourceInStorageAlreadyExists.class})
     public ResponseEntity<ErrorResponseDTO> handleAlreadyExists(RuntimeException e) {
         throwLogError(e);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO(e.getMessage()));
