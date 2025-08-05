@@ -4,6 +4,7 @@ import com.lostway.cloudfilestorage.controller.dto.UserLoginAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.UserLoginDTO;
 import com.lostway.cloudfilestorage.controller.dto.UserRegistrationAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.UserRegistrationDTO;
+import com.lostway.cloudfilestorage.minio.FileStorageService;
 import com.lostway.cloudfilestorage.service.SimpleUserDetailsService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -28,6 +29,7 @@ import static org.springframework.http.HttpStatus.*;
 public class SecurityController {
     private final AuthenticationManager authenticationManager;
     private final SimpleUserDetailsService simpleUserDetailsService;
+    private final FileStorageService fileStorageService;
 
     /**
      * При регистрации юзеру сразу создаётся сессия и выставляется кука.

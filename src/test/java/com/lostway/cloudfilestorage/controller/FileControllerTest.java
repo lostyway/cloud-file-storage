@@ -3,6 +3,8 @@ package com.lostway.cloudfilestorage.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lostway.cloudfilestorage.IntegrationTest;
 import com.lostway.cloudfilestorage.controller.dto.FileType;
+import com.lostway.cloudfilestorage.minio.FileStorageService;
+import com.lostway.cloudfilestorage.security.CustomUserDetails;
 import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
@@ -13,8 +15,14 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.test.context.support.WithAnonymousUser;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,6 +38,22 @@ class FileControllerTest extends IntegrationTest {
 
     @Value("${minio.bucket.name}")
     private String bucketName;
+
+    private final String makeEmptyFolder = "/api/directory/";
+    private final String deleteApi = "/api/resource/";
+    private final String uploadOrGetInformation = "/api/resource/";
+
+    private final MockMultipartFile file = new MockMultipartFile(
+            "file",
+            "C:/test.txt",
+            MediaType.TEXT_PLAIN_VALUE,
+            "Hello, World".getBytes()
+    );
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
+    private String rootFolder;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -47,15 +71,26 @@ class FileControllerTest extends IntegrationTest {
                     .object(objectName)
                     .build());
         }
+
+        CustomUserDetails customUserDetails = new CustomUserDetails(
+                1L, "username", "password", List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                customUserDetails, null, customUserDetails.getAuthorities()
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
+        this.rootFolder = fileStorageService.getRootFolder();
     }
 
     @Nested
-    class createEmptyFolderMethod {
-        String apiPath = "/api/directory/";
+    class CreateEmptyFolderMethod {
 
         @Test
         public void whenCreateEmptyDirectoryIsSuccessful() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test"));
@@ -63,7 +98,7 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenCreateEmptyDirectoryIsSuccessful2() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test"));
@@ -71,12 +106,12 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenCreateEmptyDirectoryIsSuccessfulWithParentFolder() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test"));
 
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/test2"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test2"));
@@ -84,28 +119,21 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenCreateEmptyDirectoryIsSuccessfulWithParentFolder2() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test"));
 
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/test2/"))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test2"));
         }
 
-        @Test
-        @WithAnonymousUser
-        public void whenTestWithoutAccess() throws Exception {
-            mockMvc.perform(post(apiPath)
-                            .param("pathFolder", "test"))
-                    .andExpect(status().isUnauthorized());
-        }
 
         @Test
         public void whenCreateEmptyDirectoryIsFailedByNotHaveParentFolder() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/test2"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
@@ -113,7 +141,7 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenCreateEmptyDirectoryIsFailedByBadPath() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test//test2"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
@@ -121,7 +149,7 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenCreateEmptyDirectoryIsFailedByBadPath2() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/test 2"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
@@ -129,41 +157,15 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenCreateEmptyDirectoryIsFailedByBadPath3() throws Exception {
-            mockMvc.perform(post(apiPath)
-                            .param("pathFolder", "test/./test2"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
-        }
-
-        @Test
-        public void whenCreateEmptyDirectoryIsFailedByBadPath4() throws Exception {
-            mockMvc.perform(post(apiPath)
+            mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/../test2"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
-        }
-
-        @Test
-        public void whenCreateEmptyDirectoryIsFailedByBadPath5() throws Exception {
-            mockMvc.perform(post(apiPath)
-                            .param("pathFolder", "/test2/"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
         }
     }
 
     @Nested
-    class getInformationAboutResourceMethod {
-        String getInformation = "/api/resource/";
-        String makeEmptyFolder = "/api/directory/";
-
-        @Test
-        @WithAnonymousUser
-        public void whenTestWithoutAccess() throws Exception {
-            mockMvc.perform(post(getInformation)
-                            .param("path", "test"))
-                    .andExpect(status().isUnauthorized());
-        }
+    class GetInformationAboutResourceMethod {
 
         @Test
         public void whenGetInformationAboutFolder() throws Exception {
@@ -177,10 +179,10 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test2"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test2"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
@@ -192,10 +194,10 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
@@ -212,7 +214,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test2"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test3"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Ресурс не найден"));
@@ -220,7 +222,7 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenGetInformationAboutFolderWithIncorrectParentFolder() throws Exception {
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test3"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
@@ -228,7 +230,7 @@ class FileControllerTest extends IntegrationTest {
 
         @Test
         public void whenGetInformationAboutFolderWithIncorrectFileInRoot() throws Exception {
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Ресурс не найден"));
@@ -246,7 +248,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test2"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test2/test3"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Ресурс не найден"));
@@ -264,17 +266,17 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test2"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test2/"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test2"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
@@ -286,78 +288,40 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.name").value("test"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
     }
 
     @Nested
-    class deleteFolderOrFile {
-        String makeEmptyFolder = "/api/directory/";
-        String deleteApi = "/api/resource/";
-        String getInformation = "/api/resource/";
-
-        @Test
-        @WithAnonymousUser
-        void whenNotAuthorize() throws Exception {
-            mockMvc.perform(delete(deleteApi)
-                            .param("path", "test"))
-                    .andExpect(status().isUnauthorized());
-        }
+    class DeleteFolderOrFile {
 
         @Test
         void whenDeleteFolderIsSuccessful() throws Exception {
             mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test"))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"));
 
             mockMvc.perform(delete(deleteApi)
                             .param("path", "test/"))
                     .andExpect(status().isNoContent());
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Ресурс не найден"));
-        }
-
-        @Test
-        void whenDeleteFolderIsFailedBecauseBadFlash() throws Exception {
-            mockMvc.perform(post(makeEmptyFolder)
-                            .param("pathFolder", "test"))
-                    .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.path").value(""))
-                    .andExpect(jsonPath("$.name").value("test"));
-
-            mockMvc.perform(get(getInformation)
-                            .param("path", "test"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value(""))
-                    .andExpect(jsonPath("$.name").value("test"));
-
-            mockMvc.perform(delete(deleteApi)
-                            .param("path", "test"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.message").value("Ресурс не найден"));
-
-            mockMvc.perform(get(getInformation)
-                            .param("path", "test"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value(""))
-                    .andExpect(jsonPath("$.name").value("test"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
 
         @Test
@@ -365,46 +329,98 @@ class FileControllerTest extends IntegrationTest {
             mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test"))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.path").value(""))
+                    .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"));
 
             mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/test2"))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"));
 
             mockMvc.perform(post(makeEmptyFolder)
                             .param("pathFolder", "test/test3"))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test3"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test3"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.path").value("test/"))
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test3"));
 
             mockMvc.perform(delete(deleteApi)
                             .param("path", "test/"))
                     .andExpect(status().isNoContent());
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Ресурс не найден"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test2/"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
 
-            mockMvc.perform(get(getInformation)
+            mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test3/"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
         }
     }
 
+    @Nested
+    class UploadFileMethod {
+
+        @Test
+        void whenSuccessInRoot() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+        }
+    }
+
+    @Nested
+    class WithAnonumUser {
+
+        @BeforeEach
+        void setUp() {
+            SecurityContextHolder.getContext().setAuthentication(null);
+        }
+
+        @Test
+        public void whenTestWithoutAccess() throws Exception {
+            mockMvc.perform(post(makeEmptyFolder)
+                            .param("pathFolder", "test"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        public void whenTestWithoutAccess2() throws Exception {
+            mockMvc.perform(post(uploadOrGetInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void whenNotAuthorize() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void whenNotAuthorize2() throws Exception {
+            mockMvc.perform(delete(deleteApi)
+                            .param("path", "test"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
 }

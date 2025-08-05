@@ -5,10 +5,10 @@ import com.lostway.cloudfilestorage.exception.dto.UserAlreadyExistsException;
 import com.lostway.cloudfilestorage.repository.UserRepository;
 import com.lostway.cloudfilestorage.repository.entity.UserEntity;
 import com.lostway.cloudfilestorage.repository.entity.UserRole;
+import com.lostway.cloudfilestorage.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -27,7 +27,8 @@ public class SimpleUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return userRepository.findByUsername(username)
-                .map(userEntity -> User.builder()
+                .map(userEntity -> CustomUserDetails.builder()
+                        .id(userEntity.getId())
                         .username(userEntity.getUsername())
                         .password(userEntity.getPassword())
                         .authorities(List.of(new SimpleGrantedAuthority(userEntity.getRole())))

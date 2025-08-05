@@ -14,6 +14,6 @@ public class StorageAnswerDTO implements StorageResourceDTO {
 
 
     public static StorageAnswerDTO getDefault(String path, String name, long size) {
-        return new StorageAnswerDTO(path == null ? "" : path, name, size, FileType.FILE);
+        return new StorageAnswerDTO(path == null || path.equals("/") ? "" : path, name, size, FileType.FILE);
     }
 }

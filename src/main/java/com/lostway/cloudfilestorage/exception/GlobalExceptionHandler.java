@@ -12,6 +12,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.nio.file.attribute.UserPrincipalNotFoundException;
+
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
@@ -22,10 +24,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO("Неверный логин или пароль"));
     }
 
-    @ExceptionHandler(FolderAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponseDTO> handleFolderAlreadyExistsException(FolderAlreadyExistsException e) {
+    @ExceptionHandler({FolderAlreadyExistsException.class, FileInStorageAlreadyExists.class})
+    public ResponseEntity<ErrorResponseDTO> handleAlreadyExists(RuntimeException e) {
         throwLogError(e);
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO("Папка уже существует"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponseDTO> handleUserAlreadyExistsException(UserAlreadyExistsException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO(e.getMessage()));
     }
 
     @ExceptionHandler(FileStorageException.class)
@@ -46,6 +54,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Невалидный или отсутствующий путь к папке"));
     }
 
+    @ExceptionHandler(CantGetUserContextIdException.class)
+    public ResponseEntity<ErrorResponseDTO> handleCantGetUserContextIdException(CantGetUserContextIdException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
+    @ExceptionHandler(UserPrincipalNotFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleInvalidFolderPathException(UserPrincipalNotFoundException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
     @ExceptionHandler(FileStorageNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleFileStorageNotFoundException(FileStorageNotFoundException e) {
         throwLogError(e);
@@ -58,10 +78,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Ошибка при вводе параметров"));
     }
 
-    @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponseDTO> handleUserAlreadyExistsException(UserAlreadyExistsException e) {
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponseDTO> handleIllegalArgumentException(IllegalArgumentException e) {
         throwLogError(e);
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
     }
 
     @ExceptionHandler(JsonProcessingException.class)
