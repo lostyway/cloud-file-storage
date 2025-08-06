@@ -330,8 +330,7 @@ public class FileStorageService {
         } catch (FileStorageNotFoundException e) {
             log.warn("Файл или папка не была найдена: {}", parentFolder);
             return false;
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new FileStorageException("Ошибка проверки существования объекта", e);
         }
     }
@@ -650,16 +649,16 @@ public class FileStorageService {
                                         .object(objectName)
                                         .build())) {
                             in.transferTo(zipOut);
+                        } catch (Exception e) {
+                            log.error("Не удалось добавить файл {} в архив: {}", objectName, e.getMessage());
                         }
+
                         zipOut.closeEntry();
                     }
                 }
                 zipOut.finish();
-            } catch (InvalidFolderPathException | FileStorageNotFoundException | CantGetUserContextIdException e) {
-                throw e;
             } catch (Exception e) {
-                throw new ResourceDownloadException("Ошибка при попытке скачать папку");
-
+                log.error("Ошибка при архивации папки {}: {}", userPath, e.getMessage(), e);
             }
         };
     }

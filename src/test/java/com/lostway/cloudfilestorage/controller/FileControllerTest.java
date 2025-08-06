@@ -9,10 +9,7 @@ import io.minio.RemoveObjectArgs;
 import io.minio.Result;
 import io.minio.messages.Item;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -21,14 +18,15 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.List;
 
 import static com.lostway.cloudfilestorage.utils.MinioStorageUtils.getNameFromPath;
 import static com.lostway.cloudfilestorage.utils.MinioStorageUtils.getRootFolder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Slf4j
 class FileControllerTest extends IntegrationTest {
@@ -608,6 +606,30 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/qwe/"))
                     .andExpect(jsonPath("$.name").value("test.txt"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Проверка метода скачивания файла с сервера")
+    class DownloadResourceMethod {
+
+        @Test
+        void whenDownloadFileIsSuccessfulThenReturnStream() throws Exception {
+            byte[] expectedContent = file.getBytes();
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated());
+
+            MvcResult result = mockMvc.perform(get(downloadApi)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_OCTET_STREAM))
+                    .andReturn();
+
+            byte[] actualContent = result.getResponse().getContentAsByteArray();
+            Assertions.assertArrayEquals(expectedContent, actualContent);
         }
     }
 

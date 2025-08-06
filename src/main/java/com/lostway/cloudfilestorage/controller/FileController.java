@@ -64,5 +64,4 @@ public class FileController {
         fileStorageService.createUserRootFolder();
         return fileStorageService.downloadResource(path, response);
     }
-
 }
