@@ -3,7 +3,14 @@ package com.lostway.cloudfilestorage.controller;
 import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
+import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -16,21 +23,53 @@ import java.util.List;
 
 import static org.springframework.http.HttpStatus.CREATED;
 
+@Tag(name = "Cloud File Storage", description = "API для управления ресурсами (файлами/папками)")
 @RestController
 @RequestMapping("${api.url}")
 @RequiredArgsConstructor
 public class FileController {
     private final FileStorageService fileStorageService;
 
+    @Operation(
+            summary = "Получение информации о ресурсе.",
+            description = "Получает информацию о папке/файле (файл отображает его размер)."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Успешное получение информации о ресурсе.",
+                    content = @Content(schema = @Schema(implementation = StorageAnswerDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидный или отсутствующий путь.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Пользователь не авторизован.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Ресурс не найден.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Неизвестная ошибка.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
     @GetMapping("/resource")
-    public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam String path) {
+    public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam(name = "path") String path) {
         fileStorageService.createUserRootFolder();
         StorageResourceDTO result = fileStorageService.getInformationAboutResource(path);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/directory")
-    public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam String pathFolder) {
+    public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam(name = "pathFolder") String pathFolder) {
         fileStorageService.createUserRootFolder();
         StorageFolderAnswerDTO result = fileStorageService.createEmptyFolder(pathFolder);
         return ResponseEntity.status(CREATED).body(result);
@@ -64,4 +103,9 @@ public class FileController {
         fileStorageService.createUserRootFolder();
         return fileStorageService.downloadResource(path, response);
     }
+
+//    @GetMapping("/resource/move")
+//    public ResponseEntity<StorageResourceDTO> replaceResource(@RequestParam("from") String oldPath,
+//                                                              @RequestParam("to") String newPath) {
+//    }
 }
