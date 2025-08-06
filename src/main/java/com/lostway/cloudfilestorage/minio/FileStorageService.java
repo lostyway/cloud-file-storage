@@ -5,7 +5,7 @@ import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
 import io.minio.*;
-import io.minio.errors.ErrorResponseException;
+import io.minio.errors.*;
 import io.minio.messages.Item;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
@@ -69,15 +69,15 @@ public class FileStorageService {
      */
     public StorageResourceDTO getInformationAboutResource(String path) {
         try {
+            path = getFullUserPath(path);
 
             if (isFolderPath(path)) {
-                path = getFullUserPath(path);
                 checkFolderPath(path);
                 return tryReturnAsFolder(path);
             } else {
-                path = getFullUserPath(path);
                 validatePathToFile(path);
-                StatObjectResponse stat = getStatObjectResponse(path);
+                checkAndGetParentFolders(path);
+                StatObjectResponse stat = getStatAboutFile(path);
                 return generateDTOFromTypeOfObject(path, stat);
             }
 
@@ -85,8 +85,10 @@ public class FileStorageService {
                  InvalidFolderPathException |
                  FileStorageException |
                  ParentFolderNotFoundException e) {
+            log.info("Ошибка: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
+            log.info("Ошибка: {}", e.getMessage());
             throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
         }
     }
@@ -312,7 +314,7 @@ public class FileStorageService {
      */
     private boolean doesObjectExists(String parentFolder) {
         try {
-            getStatObjectResponse(parentFolder);
+            getStatAboutFile(parentFolder);
             return true;
         } catch (ErrorResponseException e) {
             if (e.errorResponse().code().equals("NoSuchKey")) {
@@ -390,15 +392,20 @@ public class FileStorageService {
      * @throws ErrorResponseException ошибка, если ресурс не был найден (может папка)
      */
     @SneakyThrows
-    private StatObjectResponse getStatObjectResponse(String path) throws ErrorResponseException {
-        var stat = minioClient.statObject(
-                StatObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(path)
-                        .build()
-        );
-        log.debug("Получена информация о файле: {}", stat);
-        return stat;
+    private StatObjectResponse getStatAboutFile(String path) throws ErrorResponseException {
+        log.info("получение статистики о файле: {}", path);
+        try {
+            var stat = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(path)
+                            .build()
+            );
+            log.debug("Получена информация о файле: {}", stat);
+            return stat;
+        } catch (ParentFolderNotFoundException e) {
+            throw e;
+        }
     }
 
     /**
@@ -426,6 +433,7 @@ public class FileStorageService {
             throw new RuntimeException("Неизвестная ошибка при доступе к MinIO", e);
         }
     }
+
 
     /**
      * Создание корневой папки пользователя
