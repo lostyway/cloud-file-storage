@@ -295,6 +295,42 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(jsonPath("$.name").value("test"))
                     .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
+
+        @Test
+        public void whenTryToFindFile() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/123"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/123/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.size").value("Hello, World".getBytes().length));
+
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/123/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/123/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()))
+                    .andExpect(jsonPath("$.size").value("Hello, World".getBytes().length));
+        }
+
+        @Test
+        public void whenTryToFindFileAndFailed() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/123/123"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/123/123/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.size").value("Hello, World".getBytes().length));
+
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/123/test.txt"))
+                    .andExpect(status().isNotFound());
+        }
     }
 
     @Nested

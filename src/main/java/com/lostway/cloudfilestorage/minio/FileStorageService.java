@@ -5,7 +5,7 @@ import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
 import io.minio.*;
-import io.minio.errors.*;
+import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
@@ -134,9 +134,12 @@ public class FileStorageService {
 
     public StorageAnswerDTO uploadFile(String path, MultipartFile file) {
         try {
+            log.debug("Загрузка файла: {}, File: {}", path, file);
             String filename = getNameFromPath(getOriginalFileName(file));
             String normalizedPath = getFullUserPath(path);
             String objectName = normalizedPath + filename;
+            log.debug("objectName: {}", objectName);
+            log.debug("normalizedPath: {}", normalizedPath);
 
             validatePathAndCheckIsResourceAlreadyExists(objectName, true);
             makeEmptyFoldersOnPathIfNeeded(normalizedPath);
@@ -220,7 +223,7 @@ public class FileStorageService {
             throw new InvalidFolderPathException("Необходимо ввести путь к папке, а не файлу");
         }
 
-        if (!checkAllMaybeAFolder(fullPath)) {
+        if (!checkIsFolderExists(fullPath)) {
             log.warn("Папка по пути: {} не существует", fullPath);
             throw new FolderNotFoundException("Папка по указанному пути не существует");
         }
@@ -273,9 +276,12 @@ public class FileStorageService {
      */
     @SneakyThrows
     private void makeEmptyFolder(String folderPath) {
-        if (doesObjectExists(folderPath)) {
+        log.debug("Создание пустой папки: {}", folderPath);
+        if (checkIsFolderExists(folderPath)) {
+            log.warn("Объект не существует: {}", folderPath);
             return;
         }
+        log.debug("Путь прошел проверку: {}", folderPath);
 
         minioClient.putObject(
                 PutObjectArgs.builder()
@@ -296,9 +302,9 @@ public class FileStorageService {
      */
     private String checkAndGetParentFolders(String folderPath) {
         String parentFolder = getParentFolders(folderPath);
-        log.debug("Поиск родительской папки: {} ", parentFolder);
+        log.info("Поиск родительской папки: {} ", parentFolder);
 
-        if (parentFolder != null && !doesObjectExists(parentFolder)) {
+        if (parentFolder != null && !checkIsFolderExists(parentFolder)) {
             throw new ParentFolderNotFoundException("Родительская папка не найдена: " + parentFolder);
         }
 
@@ -318,10 +324,14 @@ public class FileStorageService {
             return true;
         } catch (ErrorResponseException e) {
             if (e.errorResponse().code().equals("NoSuchKey")) {
-                return checkAllMaybeAFolder(parentFolder);
+                return checkIsFolderExists(parentFolder);
             }
             throw new FileStorageException("Ошибка проверки существования объекта", e);
-        } catch (Exception e) {
+        } catch (FileStorageNotFoundException e) {
+            log.warn("Файл или папка не была найдена: {}", parentFolder);
+            return false;
+        }
+        catch (Exception e) {
             throw new FileStorageException("Ошибка проверки существования объекта", e);
         }
     }
@@ -333,7 +343,7 @@ public class FileStorageService {
      * @return true --> папка существует<p>
      * false --> папка не существует
      */
-    private boolean checkAllMaybeAFolder(String folderPath) {
+    private boolean checkIsFolderExists(String folderPath) {
         var results = minioClient.listObjects(
                 ListObjectsArgs.builder()
                         .bucket(bucketName)
@@ -369,7 +379,7 @@ public class FileStorageService {
         try {
             checkAndGetParentFolders(path);
 
-            if (!checkAllMaybeAFolder(path)) {
+            if (!checkIsFolderExists(path)) {
                 throw new FileStorageNotFoundException("Ресурс не найден: " + path);
             }
 
@@ -394,18 +404,30 @@ public class FileStorageService {
     @SneakyThrows
     private StatObjectResponse getStatAboutFile(String path) throws ErrorResponseException {
         log.info("получение статистики о файле: {}", path);
+        StatObjectResponse stat = null;
         try {
-            var stat = minioClient.statObject(
+            stat = minioClient.statObject(
                     StatObjectArgs.builder()
                             .bucket(bucketName)
                             .object(path)
                             .build()
             );
             log.debug("Получена информация о файле: {}", stat);
-            return stat;
         } catch (ParentFolderNotFoundException e) {
             throw e;
+        } catch (ErrorResponseException e) {
+            if (e.errorResponse().code().equals("NoSuchKey")) {
+                log.error("Получена ошибка при поиске файла. Файл не был найден: NoSuchKey: {}", path);
+                throw new FileStorageNotFoundException("Файл не был найден");
+            }
         }
+
+        if (stat == null) {
+            log.error("Получена ошибка при поиске файла. Файл не был найден: {}", path);
+            throw new FileStorageNotFoundException("Файл не был найден");
+        }
+
+        return stat;
     }
 
     /**
@@ -456,13 +478,16 @@ public class FileStorageService {
      * @param path путь до ресурса
      */
     private void validatePathAndCheckIsResourceAlreadyExists(String path, boolean isFile) {
+        log.debug("Проверка корректности пути validatePathAndCheckIsResourceAlreadyExists: isFile {}, {}", isFile, path);
         if (isFile) {
             validatePathToFile(path);
         } else {
             checkFolderPath(path);
         }
+        log.debug("Проверка существования ресурса: isFile {}, {}", isFile, path);
 
         if (doesObjectExists(path)) {
+            log.debug("Ресурс по такому пути уже существует!: isFile {}, {}", isFile, path);
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
         }
 
