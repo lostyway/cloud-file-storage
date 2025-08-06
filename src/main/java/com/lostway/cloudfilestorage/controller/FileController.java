@@ -4,11 +4,13 @@ import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.List;
 
@@ -20,28 +22,35 @@ import static org.springframework.http.HttpStatus.CREATED;
 public class FileController {
     private final FileStorageService fileStorageService;
 
-    @GetMapping("/resource/")
+    @GetMapping("/resource")
     public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam String path) {
         fileStorageService.createUserRootFolder();
         StorageResourceDTO result = fileStorageService.getInformationAboutResource(path);
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/directory/")
+    @PostMapping("/directory")
     public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam String pathFolder) {
         fileStorageService.createUserRootFolder();
         StorageFolderAnswerDTO result = fileStorageService.createEmptyFolder(pathFolder);
         return ResponseEntity.status(CREATED).body(result);
     }
 
-    @DeleteMapping("/resource/")
+    @DeleteMapping("/resource")
     public ResponseEntity<Void> deleteResource(@RequestParam String path) {
         fileStorageService.createUserRootFolder();
         fileStorageService.delete(path);
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping(value = "/resource/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @GetMapping("/directory")
+    public ResponseEntity<List<StorageResourceDTO>> getDirectoryFiles(@RequestParam(value = "path", required = false) String path) {
+        fileStorageService.createUserRootFolder();
+        List<StorageResourceDTO> result = fileStorageService.getFilesFromDirectory(path);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping(value = "/resource", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<StorageAnswerDTO> uploadResource(@RequestParam(value = "path", required = false) String path,
                                                            @RequestParam("file") MultipartFile file) {
         fileStorageService.createUserRootFolder();
@@ -49,11 +58,11 @@ public class FileController {
         return ResponseEntity.status(CREATED).body(result);
     }
 
-    @GetMapping("/directory/")
-    public ResponseEntity<List<StorageResourceDTO>> getDirectoryFiles(@RequestParam(value = "path", required = false) String path) {
+    @GetMapping("/resource/download")
+    public ResponseEntity<StreamingResponseBody> downloadResource(@RequestParam(required = false) String path,
+                                                                  HttpServletResponse response) {
         fileStorageService.createUserRootFolder();
-        List<StorageResourceDTO> result = fileStorageService.getFilesFromDirectory(path);
-        return ResponseEntity.ok(result);
+        return fileStorageService.downloadResource(path, response);
     }
 
 }

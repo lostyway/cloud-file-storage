@@ -8,17 +8,25 @@ import io.minio.*;
 import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static com.lostway.cloudfilestorage.utils.MinioStorageUtils.*;
 
@@ -90,9 +98,9 @@ public class FileStorageService {
      *
      * @param folderPath путь до папки
      * @return DTO с информацией о созданной папке
-     * @throws ParentFolderNotFoundException путь до родительской папки не был найден
-     * @throws FolderAlreadyExistsException  папка уже существует (дубликат)
-     * @throws InvalidFolderPathException    невалидный путь до папки
+     * @throws ParentFolderNotFoundException  путь до родительской папки не был найден
+     * @throws ResourceInStorageAlreadyExists папка уже существует (дубликат)
+     * @throws InvalidFolderPathException     невалидный путь до папки
      */
 
     public StorageFolderAnswerDTO createEmptyFolder(String folderPath) {
@@ -105,7 +113,7 @@ public class FileStorageService {
             makeEmptyFolder(normalPath);
             return StorageFolderAnswerDTO.getDefault(parentFolders, pathName);
 
-        } catch (FileStorageException | FolderAlreadyExistsException | ParentFolderNotFoundException |
+        } catch (FileStorageException | ResourceInStorageAlreadyExists | ParentFolderNotFoundException |
                  InvalidFolderPathException | CantGetUserContextIdException e) {
             throw e;
         } catch (Exception e) {
@@ -139,6 +147,36 @@ public class FileStorageService {
             throw e;
         } catch (Exception e) {
             throw new FileStorageException("Не удалось загрузить файл", e);
+        }
+    }
+
+    /**
+     * Скачивание файлов с хранилища. Можно сохранять только свои файлы (контролируется rootFolder)
+     *
+     * @param path путь до файла
+     * @return ресурс для скачиваения
+     */
+    public ResponseEntity<StreamingResponseBody> downloadResource(String path, HttpServletResponse response) {
+        try {
+            String userPath = getFullUserPath(path);
+
+            if (!doesObjectExists(userPath)) {
+                log.error("Ресурс для скачивания не был найден: {}", userPath);
+                throw new FileStorageNotFoundException("Ресурс для скачивания не был найден");
+            }
+
+            return isFolderPath(userPath)
+                    ? downloadFolder(userPath, response)
+                    : downloadFile(userPath, response);
+
+        } catch (InvalidFolderPathException | FileStorageNotFoundException | CantGetUserContextIdException e) {
+            response.reset();
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            throw e;
+        } catch (Exception e) {
+            response.reset();
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            throw new ResourceDownloadException(e.getMessage());
         }
     }
 
@@ -364,6 +402,32 @@ public class FileStorageService {
     }
 
     /**
+     * Метод проверяет существует ли файл
+     *
+     * @param path полный путь до файла
+     * @return true -> существует<p>
+     * false -> не существует
+     */
+    public boolean isFileExists(String path) {
+        try {
+            minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(path)
+                            .build()
+            );
+            return true;
+        } catch (ErrorResponseException e) {
+            if ("NoSuchKey".equals(e.errorResponse().code())) {
+                return false;
+            }
+            throw new RuntimeException("Ошибка при проверке файла в MinIO", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Неизвестная ошибка при доступе к MinIO", e);
+        }
+    }
+
+    /**
      * Создание корневой папки пользователя
      */
     public void createUserRootFolder() {
@@ -397,16 +461,25 @@ public class FileStorageService {
         log.info("Ресурс '{}' не существует по этому пути. Можно создавать", path);
     }
 
+    /**
+     * Загрузка файла на сервер потоком
+     *
+     * @param file       файл
+     * @param objectName путь, куда загружать
+     */
+
     @SneakyThrows
     private void uploadFileInFolder(MultipartFile file, String objectName) {
-        minioClient.putObject(
-                PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(objectName)
-                        .stream(file.getInputStream(), file.getSize(), -1)
-                        .contentType(file.getContentType())
-                        .build()
-        );
+        try (InputStream inputStream = file.getInputStream()) {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .stream(inputStream, file.getSize(), -1)
+                            .contentType(file.getContentType())
+                            .build()
+            );
+        }
         log.info("Файл успешно загружен в '{}'", objectName);
     }
 
@@ -491,5 +564,100 @@ public class FileStorageService {
         } catch (Exception e) {
             throw new FileStorageException("Ошибка при удалении файла", e);
         }
+    }
+
+    /**
+     * Метод скачивания папок и упаковки их в ZIP архив.
+     */
+    private ResponseEntity<StreamingResponseBody> downloadFolder(String userPath, HttpServletResponse response) {
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + getNameFromPath(userPath) + "\"");
+
+        return ResponseEntity.ok()
+                .body(getZipArchiveStream(userPath));
+    }
+
+    /**
+     * Метод открытия потока для возврата архива с файлами в буфере
+     *
+     * @param userPath путь до папки
+     * @return поток с данными
+     */
+    private StreamingResponseBody getZipArchiveStream(String userPath) {
+        return out -> {
+            try (ZipOutputStream zipOut = new ZipOutputStream(out)) {
+
+                var results = minioClient.listObjects(
+                        ListObjectsArgs.builder()
+                                .bucket(bucketName)
+                                .prefix(userPath)
+                                .recursive(true)
+                                .build());
+
+                for (Result<Item> result : results) {
+                    Item item = result.get();
+                    if (!item.isDir()) {
+                        String objectName = item.objectName();
+
+                        if (objectName.equals(userPath) || objectName.equals(userPath + "/")) {
+                            continue;
+                        }
+
+                        String entryName = objectName.substring(userPath.length());
+
+                        if (entryName.startsWith("/")) {
+                            entryName = entryName.substring(1);
+                        }
+
+                        zipOut.putNextEntry(new ZipEntry(entryName));
+
+                        try (InputStream in = minioClient.getObject(
+                                GetObjectArgs.builder()
+                                        .bucket(bucketName)
+                                        .object(objectName)
+                                        .build())) {
+                            in.transferTo(zipOut);
+                        }
+                        zipOut.closeEntry();
+                    }
+                }
+                zipOut.finish();
+            } catch (InvalidFolderPathException | FileStorageNotFoundException | CantGetUserContextIdException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ResourceDownloadException("Ошибка при попытке скачать папку");
+
+            }
+        };
+    }
+
+    /**
+     * Метод для скачивания файлов
+     *
+     * @param userPath путь до файла
+     * @param response ответ пользователю (куда будет отправляться поток файлов, чтобы не хранить в JVM)
+     * @return поток данных с запрашиваемым ресурсом
+     */
+    private ResponseEntity<StreamingResponseBody> downloadFile(String userPath, HttpServletResponse response) {
+        response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+        String headerValue = "attachment; filename*=UTF-8''" + URLEncoder.encode(getNameFromPath(userPath), StandardCharsets.UTF_8)
+                .replace("+", "%20");
+
+        response.setHeader("Content-Disposition", headerValue);
+        StreamingResponseBody stream = out -> {
+            try (InputStream in = minioClient.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(userPath)
+                            .build())) {
+                in.transferTo(out);
+            } catch (Exception e) {
+                log.error("Ошибка при скачивании файла: downloadFolder, {} ", userPath, e);
+                throw new ResourceDownloadException("Ошибка при попытке скачать файл");
+            }
+        };
+
+        return ResponseEntity.ok()
+                .body(stream);
     }
 }

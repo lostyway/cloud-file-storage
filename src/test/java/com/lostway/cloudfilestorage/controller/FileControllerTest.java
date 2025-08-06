@@ -1,9 +1,7 @@
 package com.lostway.cloudfilestorage.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lostway.cloudfilestorage.IntegrationTest;
 import com.lostway.cloudfilestorage.controller.dto.FileType;
-import com.lostway.cloudfilestorage.minio.FileStorageService;
 import com.lostway.cloudfilestorage.security.CustomUserDetails;
 import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
@@ -41,9 +39,9 @@ class FileControllerTest extends IntegrationTest {
     @Value("${minio.bucket.name}")
     private String bucketName;
 
-    private final String makeEmptyFolder = "/api/directory/";
-    private final String deleteApi = "/api/resource/";
-    private final String uploadOrGetInformation = "/api/resource/";
+    private final String makeEmptyFolder = "/api/directory";
+    private final String deleteApi = "/api/resource";
+    private final String uploadOrGetInformation = "/api/resource";
 
     private final MockMultipartFile file = new MockMultipartFile(
             "file",

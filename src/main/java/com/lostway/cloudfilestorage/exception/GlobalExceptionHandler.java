@@ -54,6 +54,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Невалидный или отсутствующий путь к папке"));
     }
 
+    @ExceptionHandler(FileUploadSizeException.class)
+    public ResponseEntity<ErrorResponseDTO> handleFileUploadSizeException(FileUploadSizeException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
     @ExceptionHandler(CantGetUserContextIdException.class)
     public ResponseEntity<ErrorResponseDTO> handleCantGetUserContextIdException(CantGetUserContextIdException e) {
         throwLogError(e);

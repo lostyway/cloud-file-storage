@@ -91,7 +91,7 @@ public class MinioStorageUtils {
      * @param path путь к файлу (используется только для файлов, для папок не подойдет)
      */
     public void validatePathToFile(String path) {
-        if (!path.matches("^(?!.*//)(?!.*(?:^|/)\\.)(?!.*(?:^|/)\\.\\.)([a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+$")) {
+        if (!path.matches("^(?!.*//)(?!.*(?:^|/)\\.)(?!.*(?:^|/)\\.\\.)([\\p{L}\\p{N} _\\-]+/)*[\\p{L}\\p{N} _\\-]+\\.[\\p{L}\\p{N}]+$")) {
             throw new InvalidFolderPathException("Недопустимый путь: " + path);
         }
     }
@@ -132,5 +132,16 @@ public class MinioStorageUtils {
     public String getStandardFullRootFolder(String path) {
         String newPath = getStandardPath(path);
         return getRootFolder() + newPath;
+    }
+
+    /**
+     * Возвращает первую папку в пути
+     *
+     * @param folderPath Полный путь
+     * @return Первую папку пути
+     */
+    public String getStartFolder(String folderPath) {
+        int startFolderInd = folderPath.indexOf("/");
+        return folderPath.substring(0, startFolderInd + 1);
     }
 }
