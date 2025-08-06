@@ -313,7 +313,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/123/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
                     .andExpect(jsonPath("$.type").value(FileType.FILE.toString()))
-                    .andExpect(jsonPath("$.size").value("Hello, World".getBytes().length));
+                    .andExpect(jsonPath("$.size").value(file.getBytes().length));
         }
 
         @Test
@@ -324,13 +324,14 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/123/123/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.size").value("Hello, World".getBytes().length));
+                    .andExpect(jsonPath("$.size").value(file.getBytes().length));
 
 
             mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/123/test.txt"))
                     .andExpect(status().isNotFound());
         }
+
     }
 
     @Nested
@@ -413,11 +414,39 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
 
-            log.info("ПРОВЕРКА МЕТОДА ПОИСКА УДАЛЕННОГО ФАЙЛА!");
             mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/qwe/test.txt"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.message").value("Родительская папка не существует"));
+        }
+
+        @Test
+        void whenDeleteFileIsSuccessful() throws Exception {
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()))
+                    .andExpect(jsonPath("$.size").value(file.getBytes().length));
+
+            mockMvc.perform(delete(deleteApi)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isNoContent());
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test/test.txt"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Ресурс не найден"));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
         }
     }
 
