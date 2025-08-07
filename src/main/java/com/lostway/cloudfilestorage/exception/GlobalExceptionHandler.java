@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.nio.file.attribute.UserPrincipalNotFoundException;
 
@@ -80,6 +81,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         throwLogError(e);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Ошибка при вводе параметров"));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponseDTO> handleNoHandlerFoundException(NoResourceFoundException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponseDTO("Ресурс не найден. Возможно, введен некорректный адрес URL"));
     }
 
     @ExceptionHandler(JsonProcessingException.class)

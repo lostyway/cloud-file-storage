@@ -44,6 +44,7 @@ class FileControllerTest extends IntegrationTest {
     private final String uploadOrGetInformation = "/api/resource";
     private final String downloadApi = "/api/resource/download";
     private final String replaceApi = "/api/resource/move";
+    private final String searchApi = "/api/resource/search";
 
     private final MockMultipartFile file = new MockMultipartFile(
             "file",
@@ -803,6 +804,97 @@ class FileControllerTest extends IntegrationTest {
         }
     }
 
+    @Nested
+    @DisplayName("Проверка метода поиска ресурсов по названию")
+    class SearchResource {
+
+        @Test
+        void whenSearchResourceIsFailedByBadPathToUrl() throws Exception {
+            mockMvc.perform(get("/as" + searchApi)
+                            .param("query", "test..png"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.message").value("Ресурс не найден. Возможно, введен некорректный адрес URL"));
+        }
+
+        @Test
+        void whenSearchResourceIsFailedByBadPath1() throws Exception {
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test..png"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
+        }
+
+        @Test
+        void whenSearchResourceIsFailedByBadPath2() throws Exception {
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test/.png"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
+        }
+
+        @Test
+        void whenSearchResourceIsFailedByBadPath3() throws Exception {
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test/png."))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
+        }
+
+        @Test
+        void whenSearchIsFailedByNotFound() throws Exception {
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$").isEmpty());
+        }
+
+        @Test
+        void whenSearchFileIsFailedByNotFound() throws Exception {
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$").isEmpty());
+        }
+
+        @Test
+        void whenSearchIsFoundInOnePlace() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated());
+
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.size()").value(1))
+                    .andExpect(jsonPath("$[0].path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$[0].name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$[0].size").value(file.getSize()))
+                    .andExpect(jsonPath("$[0].type").value(FileType.FILE.name()));
+        }
+
+        @Test
+        void whenSearchIsFoundInTwoPlace() throws Exception {
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated());
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "/"))
+                    .andExpect(status().isCreated());
+
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.size()").value(2));
+        }
+    }
 
     @Nested
     @DisplayName("Проверка методов под неавторизованным пользователем")
@@ -861,6 +953,13 @@ class FileControllerTest extends IntegrationTest {
             mockMvc.perform(get(replaceApi)
                             .param("from", "test")
                             .param("to", "test2"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void whenSearchWithoutUser() throws Exception {
+            mockMvc.perform(get(searchApi)
+                            .param("query", "test"))
                     .andExpect(status().isUnauthorized());
         }
     }
