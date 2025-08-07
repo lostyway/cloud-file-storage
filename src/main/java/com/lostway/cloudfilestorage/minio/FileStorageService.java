@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -128,7 +129,6 @@ public class FileStorageService {
      * @return Информация о созданном файле
      * @throws ResourceInStorageAlreadyExists > файл уже существует в этой папке
      */
-
     public StorageAnswerDTO uploadFile(String path, MultipartFile file) {
         try {
             log.debug("Загрузка файла: {}, File: {}", path, file);
@@ -211,7 +211,6 @@ public class FileStorageService {
      * @param path путь до папки, по которой нужно вернуть информацию.
      * @return Коллекция DTO с файлами и папками, которые располагаются по пути.
      */
-
     public List<StorageResourceDTO> getFilesFromDirectory(String path) {
 
         String fullPath = getFullUserPath(path);
@@ -226,6 +225,33 @@ public class FileStorageService {
         }
 
         return getAllResourcesInFolder(fullPath);
+    }
+
+    /**
+     * Метод перемещения ресурса в другую папку или же переименования ресурса (если корневой путь такой же).
+     *
+     * @param oldPath старый путь. Пример: test/test2
+     * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
+     * @return Новый вид ресурса
+     */
+    public StorageResourceDTO replaceAction(String oldPath, String newPath) {
+
+        String oldFullPath = getFullUserPath(oldPath);
+        String newFullPath = getFullUserPath(newPath);
+
+        preparationBeforeMoving(oldFullPath, newFullPath);
+
+        log.debug("Перемещение ресурсов. Старое имя: {}, Новое имя: {}",
+                oldFullPath, newFullPath);
+
+        if (isFolderPath(oldFullPath)) {
+            moveFolder(oldFullPath, newFullPath);
+        } else {
+            moveFile(oldFullPath, newFullPath);
+            makeEmptyFolder(getParentFolders(oldFullPath));
+        }
+
+        return getInfoAboutResourceWithoutValidation(newFullPath);
     }
 
     /**
@@ -271,7 +297,6 @@ public class FileStorageService {
      *
      * @param folderPath путь до папки которую нужно создать
      */
-    @SneakyThrows
     private void makeEmptyFolder(String folderPath) {
         log.debug("Создание пустой папки: {}", folderPath);
         if (checkIsFolderExists(folderPath)) {
@@ -279,16 +304,21 @@ public class FileStorageService {
             return;
         }
         log.debug("Путь прошел проверку: {}", folderPath);
+        try {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(folderPath)
+                            .stream(new ByteArrayInputStream(new byte[0]), 0, -1)
+                            .contentType(MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                            .build()
+            );
+            log.debug("Пустая папка '{}' создана", folderPath);
+        } catch (Exception e) {
+            log.error("Не получилось создать пустую папку: {}", folderPath, e);
+            throw new FileStorageException("Не получилось создать пустую папку", e);
+        }
 
-        minioClient.putObject(
-                PutObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(folderPath)
-                        .stream(new ByteArrayInputStream(new byte[0]), 0, -1)
-                        .contentType(MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                        .build()
-        );
-        log.debug("Пустая папка '{}' создана", folderPath);
     }
 
     /**
@@ -377,7 +407,7 @@ public class FileStorageService {
      * @throws ErrorResponseException ошибка, если ресурс не был найден (может папка)
      */
     @SneakyThrows
-    private StatObjectResponse getStatAboutFile(String path) throws ErrorResponseException {
+    private StatObjectResponse getStatAboutFile(String path) {
         log.info("получение статистики о файле: {}", path);
         StatObjectResponse stat = null;
         try {
@@ -388,8 +418,6 @@ public class FileStorageService {
                             .build()
             );
             log.debug("Получена информация о файле: {}", stat);
-        } catch (ParentFolderNotFoundException e) {
-            throw e;
         } catch (ErrorResponseException e) {
             if (e.errorResponse().code().equals("NoSuchKey")) {
                 log.error("Получена ошибка при поиске файла. Файл не был найден: NoSuchKey: {}", path);
@@ -518,22 +546,11 @@ public class FileStorageService {
     private void deleteFolder(String pathWithUser) {
 
         try {
-            var results = minioClient.listObjects(
-                    ListObjectsArgs.builder()
-                            .bucket(bucketName)
-                            .prefix(pathWithUser)
-                            .recursive(true)
-                            .build()
-            );
+            var results = getResourcesFromFolder(pathWithUser);
 
             for (var result : results) {
                 var item = result.get();
-                minioClient.removeObject(
-                        RemoveObjectArgs.builder()
-                                .bucket(bucketName)
-                                .object(item.objectName())
-                                .build()
-                );
+                deleteFile(item.objectName());
                 log.info("Удалена папка: {}", item.objectName());
             }
         } catch (Exception e) {
@@ -581,12 +598,7 @@ public class FileStorageService {
         return out -> {
             try (ZipOutputStream zipOut = new ZipOutputStream(out)) {
 
-                var results = minioClient.listObjects(
-                        ListObjectsArgs.builder()
-                                .bucket(bucketName)
-                                .prefix(userPath)
-                                .recursive(true)
-                                .build());
+                var results = getResourcesFromFolder(userPath);
 
                 for (Result<Item> result : results) {
                     Item item = result.get();
@@ -656,71 +668,81 @@ public class FileStorageService {
     }
 
     /**
-     * Метод перемещения ресурса в другую папку или же переименования ресурса (если корневой путь такой же).
+     * Перемещает файл в новый путь
      *
-     * @param oldPath старый путь. Пример: test/test2
-     * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
-     * @return Новый вид ресурса
+     * @param oldFullPath старый путь
+     * @param newFullPath новый путь
      */
-    public StorageResourceDTO replaceAction(String oldPath, String newPath) {
-        if (isRootFolder(oldPath) || isRootFolder(newPath)) {
-            throw new IllegalArgumentException("Путь не может быть корнем папки или пустым");
+    private void moveFile(String oldFullPath, String newFullPath) {
+        try {
+            CopySource source = CopySource.builder()
+                    .bucket(bucketName)
+                    .object(oldFullPath)
+                    .build();
+
+            minioClient.copyObject(
+                    CopyObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(newFullPath)
+                            .source(source)
+                            .build()
+            );
+
+            log.info("Файл скопирован из {} в {}", oldFullPath, newFullPath);
+
+            deleteFile(oldFullPath);
+
+        } catch (Exception e) {
+            log.error("Ошибка при перемещении файла из {} в {}: {}", oldFullPath, newFullPath, e.getMessage(), e);
+            throw new FileStorageException("Ошибка при перемещении файла", e);
         }
-
-        String oldFullPath = getFullUserPath(oldPath);
-        String newFullPath = getFullUserPath(newPath);
-
-        if (Objects.equals(oldFullPath, newFullPath)) {
-            throw new SimilarResourceException("Пути и названия двух ресурсов полностью идентичны");
-        }
-
-        if (!isSameType(oldFullPath, newFullPath)) {
-            throw new ResourcesNotTheSameTypeException("Ресурсы двух путей относятся к разным типам (файл/папка)");
-        }
-
-        validateResourcePath(oldFullPath);
-        validateResourcePath(newFullPath);
-
-        if (!doesResourceExists(oldFullPath)) {
-            log.error("Ресурс не был найден: {}", oldFullPath);
-            throw new FileStorageNotFoundException("Ресурс не существует в системе");
-        }
-
-        String newResourcePath = Objects.equals(getParentFolders(oldFullPath), getParentFolders(newFullPath))
-                ? renameResource(oldFullPath, newFullPath)
-                : replaceResource(oldFullPath, newFullPath);
-
-        return getInfoAboutResourceWithoutValidation(newResourcePath);
     }
 
     /**
-     * Перемещает ресурс в новый путь
+     * Перемещает папку и все содержимое в новый путь
      *
-     * @param oldFullPath старый путь к ресурсу
-     * @param newFullPath новый путь к ресурсу
-     * @return Новый итоговый путь к ресурсу
+     * @param oldFolderPath старый путь
+     * @param newFolderPath новый путь
      */
-    private String replaceResource(String oldFullPath, String newFullPath) {
-        log.debug("Пути к изменяемым ресурсам не равны. Ресурсы будут перемещены из старого пути: {} в новый путь: {}",
-                oldFullPath, newFullPath);
+    private void moveFolder(String oldFolderPath, String newFolderPath) {
 
-        return null;
+        if (newFolderPath.startsWith(oldFolderPath) && !newFolderPath.equals(oldFolderPath)) {
+            throw new IllegalArgumentException("Нельзя переместить папку внутрь самой себя");
+        }
 
+        try {
+            var results = getResourcesFromFolder(oldFolderPath);
+
+            for (Result<Item> result : results) {
+                Item item = result.get();
+                String oldObjectName = item.objectName();
+
+                String newObjectName = oldObjectName.replaceFirst(Pattern.quote(oldFolderPath), newFolderPath);
+
+                moveFile(oldObjectName, newObjectName);
+
+                log.debug("Объект {} перемещен в {}", oldObjectName, newObjectName);
+            }
+            log.info("Папка {} успешно перемещена в {}", oldFolderPath, newFolderPath);
+        } catch (Exception e) {
+            log.error("Ошибка при перемещении папки из {} в {}: {}", oldFolderPath, newFolderPath, e.getMessage(), e);
+            throw new FileStorageException("Ошибка перемещения папки", e);
+        }
     }
 
-
     /**
-     * Переименовывает и сохраняет ресурс
+     * Рекурсивно достает все ресурсы из папки
      *
-     * @param oldPathName старый путь к ресурсу
-     * @param newPathName новый путь к ресурсу (новое имя)
-     * @return Новый итоговый путь к ресурсу
+     * @param userPath папка, откуда нужно забрать ресурсы
+     * @return Все ресурсы из папки
      */
-    private String renameResource(String oldPathName, String newPathName) {
-        log.debug("Пути к изменяемым ресурсам равны. Переименование ресурсов. Старое имя: {}, Новое имя: {}",
-                oldPathName, newPathName);
-
-        return null;
+    private Iterable<Result<Item>> getResourcesFromFolder(String userPath) {
+        return minioClient.listObjects(
+                ListObjectsArgs.builder()
+                        .bucket(bucketName)
+                        .prefix(userPath)
+                        .recursive(true)
+                        .build());
     }
 
     /**
@@ -750,4 +772,34 @@ public class FileStorageService {
             throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
         }
     }
+
+    /**
+     * Валидация всех параметров перед перемещением в другую папку/переименованием
+     *
+     * @param oldFullPath старый путь откуда берем
+     * @param newFullPath новый путь
+     */
+    private void preparationBeforeMoving(String oldFullPath, String newFullPath) {
+        if (Objects.equals(oldFullPath, newFullPath)) {
+            throw new SimilarResourceException("Пути и названия двух ресурсов полностью идентичны");
+        }
+
+        if (!isSameType(oldFullPath, newFullPath)) {
+            throw new ResourcesNotTheSameTypeException("Ресурсы двух путей относятся к разным типам (файл/папка)");
+        }
+
+        validateResourcePath(oldFullPath);
+        validateResourcePath(newFullPath);
+
+        if (!doesResourceExists(oldFullPath)) {
+            log.error("Ресурс не был найден: {}", oldFullPath);
+            throw new FileStorageNotFoundException("Ресурс не существует в системе");
+        }
+
+        if (doesResourceExists(newFullPath)) {
+            log.error("Ресурс уже есть в конченом пути: {}", newFullPath);
+            throw new ResourceInStorageAlreadyExists("Ресурс уже существует в конченом пути");
+        }
+    }
+
 }

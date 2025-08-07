@@ -281,6 +281,43 @@ public class FileController {
         return fileStorageService.downloadResource(path, response);
     }
 
+    @Operation(
+            summary = "Перемещение/переименование ресурсов",
+            description = "Перемещает папку и все, что внутри в конечный путь или переименовывает (делает тоже самое)." +
+                    " Или же перемещает/переименовывает файл, не меняя папку внутри"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Успешное перемещение файла на новый путь",
+                    content = @Content(schema = @Schema(implementation = StorageResourceDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидный или отсутствующий путь.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "Пользователь не авторизован.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Ресурс не найден.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Ресурс, лежащий по пути to уже существует.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "500",
+                    description = "Неизвестная ошибка.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
     @GetMapping("/resource/move")
     public ResponseEntity<StorageResourceDTO> replaceResource(
             @Parameter(description = "Пример пути откуда берем или где переименовываем", example = "test/test2")

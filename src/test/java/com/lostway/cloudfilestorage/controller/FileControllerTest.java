@@ -43,6 +43,7 @@ class FileControllerTest extends IntegrationTest {
     private final String deleteApi = "/api/resource";
     private final String uploadOrGetInformation = "/api/resource";
     private final String downloadApi = "/api/resource/download";
+    private final String replaceApi = "/api/resource/move";
 
     private final MockMultipartFile file = new MockMultipartFile(
             "file",
@@ -681,6 +682,14 @@ class FileControllerTest extends IntegrationTest {
         void whenGetInformationAboutResourceWithoutUser() throws Exception {
             mockMvc.perform(get(makeEmptyFolderOrGetInformationAboutFolder)
                             .param("path", "test"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void whenReplaceWithoutUser() throws Exception {
+            mockMvc.perform(get(replaceApi)
+                            .param("from", "test")
+                            .param("to", "test2"))
                     .andExpect(status().isUnauthorized());
         }
     }
