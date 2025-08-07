@@ -36,6 +36,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO(e.getMessage()));
     }
 
+    @ExceptionHandler({
+            SimilarResourceException.class,
+            FileUploadSizeException.class,
+            IllegalArgumentException.class,
+            ResourcesNotTheSameTypeException.class})
+    public ResponseEntity<ErrorResponseDTO> handleBadRequests(RuntimeException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
     @ExceptionHandler(FileStorageException.class)
     public ResponseEntity<ErrorResponseDTO> handleFileStorageException(FileStorageException e) {
         throwLogError(e);
@@ -54,20 +64,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Невалидный или отсутствующий путь к папке"));
     }
 
-    @ExceptionHandler(FileUploadSizeException.class)
-    public ResponseEntity<ErrorResponseDTO> handleFileUploadSizeException(FileUploadSizeException e) {
-        throwLogError(e);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
-    }
-
-    @ExceptionHandler(CantGetUserContextIdException.class)
-    public ResponseEntity<ErrorResponseDTO> handleCantGetUserContextIdException(CantGetUserContextIdException e) {
-        throwLogError(e);
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO(e.getMessage()));
-    }
-
-    @ExceptionHandler(UserPrincipalNotFoundException.class)
-    public ResponseEntity<ErrorResponseDTO> handleInvalidFolderPathException(UserPrincipalNotFoundException e) {
+    @ExceptionHandler({CantGetUserContextIdException.class, UserPrincipalNotFoundException.class})
+    public ResponseEntity<ErrorResponseDTO> handleCantGetUserContextIdException(RuntimeException e) {
         throwLogError(e);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponseDTO(e.getMessage()));
     }
@@ -82,13 +80,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         throwLogError(e);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Ошибка при вводе параметров"));
-    }
-
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponseDTO> handleIllegalArgumentException(IllegalArgumentException e) {
-        throwLogError(e);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
     }
 
     @ExceptionHandler(JsonProcessingException.class)

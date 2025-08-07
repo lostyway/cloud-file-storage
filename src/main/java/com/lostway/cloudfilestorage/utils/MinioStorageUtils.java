@@ -144,4 +144,39 @@ public class MinioStorageUtils {
         int startFolderInd = folderPath.indexOf("/");
         return folderPath.substring(0, startFolderInd + 1);
     }
+
+    /**
+     * Являются ли два пути одним и тем же типом (папка+папка, файл+файл).
+     * Сделано для того, чтобы не могли прислать путь до файла и изменить его на папку
+     *
+     * @param oldPath Полный путь до старого места ресурса
+     * @param newPath Полный путь до нового места ресурса
+     * @return Вердикт. Ведут ли два пути к одному типу ресурса
+     */
+    public boolean isSameType(String oldPath, String newPath) {
+        return isFolderPath(oldPath) == isFolderPath(newPath);
+    }
+
+    /**
+     * Проверка, является ли путь пустым, "/". Т.е. просто корнем файловой системы
+     *
+     * @param path путь для проверки
+     * @return Вердикт. Ведет ли путь к корневой директории или нет
+     */
+    public boolean isRootFolder(String path) {
+        return path == null || path.isBlank() || path.trim().equals("/");
+    }
+
+    /**
+     * Проверка путей вне зависимости от того файл это или папка
+     *
+     * @param path путь к ресурсу
+     */
+    public void validateResourcePath(String path) {
+        if (isFolderPath(path)) {
+            checkFolderPath(path);
+        } else {
+            validatePathToFile(path);
+        }
+    }
 }

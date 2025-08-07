@@ -25,6 +25,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -108,7 +109,7 @@ public class FileStorageService {
     public StorageFolderAnswerDTO createEmptyFolder(String folderPath) {
         try {
             String normalPath = getFullUserPath(folderPath);
-            validatePathAndCheckIsResourceAlreadyExists(normalPath, false);
+            validatePathAndCheckIsResourceAlreadyExists(normalPath);
             String parentFolders = checkAndGetParentFolders(normalPath);
             String pathName = getNameFromPath(normalPath);
 
@@ -141,7 +142,7 @@ public class FileStorageService {
             log.debug("objectName: {}", objectName);
             log.debug("normalizedPath: {}", normalizedPath);
 
-            validatePathAndCheckIsResourceAlreadyExists(objectName, true);
+            validatePathAndCheckIsResourceAlreadyExists(objectName);
             makeEmptyFoldersOnPathIfNeeded(normalizedPath);
             uploadFileInFolder(file, objectName);
 
@@ -278,7 +279,7 @@ public class FileStorageService {
     private void makeEmptyFolder(String folderPath) {
         log.debug("Создание пустой папки: {}", folderPath);
         if (checkIsFolderExists(folderPath)) {
-            log.warn("Объект не существует: {}", folderPath);
+            log.debug("Объект уже существует: {}", folderPath);
             return;
         }
         log.debug("Путь прошел проверку: {}", folderPath);
@@ -455,7 +456,6 @@ public class FileStorageService {
         }
     }
 
-
     /**
      * Создание корневой папки пользователя
      */
@@ -464,7 +464,7 @@ public class FileStorageService {
     }
 
     /**
-     * Получение полного пути до ресурса пользователя
+     * Получение полного пути до ресурса пользователя (должен вызываться первым делом, чтобы получать root папку пользователя)
      */
     private String getFullUserPath(String path) {
         String newPath = getStandardFullRootFolder(path);
@@ -476,17 +476,13 @@ public class FileStorageService {
      *
      * @param path путь до ресурса
      */
-    private void validatePathAndCheckIsResourceAlreadyExists(String path, boolean isFile) {
-        log.debug("Проверка корректности пути validatePathAndCheckIsResourceAlreadyExists: isFile {}, {}", isFile, path);
-        if (isFile) {
-            validatePathToFile(path);
-        } else {
-            checkFolderPath(path);
-        }
-        log.debug("Проверка существования ресурса: isFile {}, {}", isFile, path);
+    private void validatePathAndCheckIsResourceAlreadyExists(String path) {
+        log.debug("Проверка корректности пути validatePathAndCheckIsResourceAlreadyExists: isFile {}", path);
+        validateResourcePath(path);
+        log.debug("Проверка существования ресурса:, {}", path);
 
         if (doesObjectExists(path)) {
-            log.debug("Ресурс по такому пути уже существует!: isFile {}, {}", isFile, path);
+            log.debug("Ресурс по такому пути уже существует!:, {}", path);
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
         }
 
@@ -695,11 +691,31 @@ public class FileStorageService {
 
     /**
      * Метод перемещения ресурса в другую папку или же переименования ресурса (если корневой путь такой же).
+     *
      * @param oldPath старый путь. Пример: test/test2
      * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
      * @return Новый вид ресурса
      */
     public StorageResourceDTO replaceResource(String oldPath, String newPath) {
+        if (isRootFolder(oldPath) || isRootFolder(newPath)) {
+            throw new IllegalArgumentException("Путь не может быть корнем папки или пустым");
+        }
+
+        String oldFullPath = getFullUserPath(oldPath);
+        String newFullPath = getFullUserPath(newPath);
+
+        if (Objects.equals(oldFullPath, newFullPath)) {
+            throw new SimilarResourceException("Пути и названия двух ресурсов полностью идентичны");
+        }
+
+        if (!isSameType(oldFullPath, newFullPath)) {
+            throw new ResourcesNotTheSameTypeException("Ресурсы двух путей относятся к разным типам (файл/папка)");
+        }
+
+        validateResourcePath(oldFullPath);
+        validateResourcePath(newFullPath);
+
+        //todo доделать метод перемещения ресурсов
         return null;
     }
 }
