@@ -146,7 +146,7 @@ class FileControllerTest extends IntegrationTest {
         @Test
         public void whenCreateEmptyDirectoryIsFailedByBadPath2() throws Exception {
             mockMvc.perform(post(makeEmptyFolderOrGetInformationAboutFolder)
-                            .param("path", "test/test 2"))
+                            .param("path", "test/./test2"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message").value("Невалидный или отсутствующий путь к папке"));
         }
@@ -181,7 +181,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
         }
 
         @Test
@@ -196,7 +196,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
         }
 
         @Test
@@ -268,14 +268,14 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
 
             mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test2"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test2"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
         }
 
         @Test
@@ -290,7 +290,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
         }
 
         @Test
@@ -309,7 +309,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/123/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()))
                     .andExpect(jsonPath("$.size").value(file.getBytes().length));
         }
 
@@ -426,7 +426,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()))
                     .andExpect(jsonPath("$.size").value(file.getBytes().length));
 
             mockMvc.perform(delete(deleteApi)
@@ -443,7 +443,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test"))
-                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
         }
     }
 
@@ -459,7 +459,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
         }
 
         @Test
@@ -471,7 +471,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
         }
 
         @Test
@@ -483,7 +483,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
         }
 
         @Test
@@ -495,7 +495,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/qwe/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
         }
 
         @Test
@@ -527,7 +527,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
 
             mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test.txt"))
@@ -545,7 +545,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
 
             mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test.txt"))
@@ -577,7 +577,7 @@ class FileControllerTest extends IntegrationTest {
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
 
             mockMvc.perform(get(uploadOrGetInformation)
                             .param("path", "test/test.txt"))
@@ -591,7 +591,7 @@ class FileControllerTest extends IntegrationTest {
                             .contentType(MediaType.MULTIPART_FORM_DATA))
                     .andExpect(jsonPath("$.path").value(rootFolder + "test/qwe/"))
                     .andExpect(jsonPath("$.name").value("test.txt"))
-                    .andExpect(jsonPath("$.type").value(FileType.FILE.toString()));
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
 
 
             mockMvc.perform(get(uploadOrGetInformation)

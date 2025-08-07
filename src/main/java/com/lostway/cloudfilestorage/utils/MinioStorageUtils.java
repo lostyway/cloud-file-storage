@@ -80,7 +80,7 @@ public class MinioStorageUtils {
      * @param folderPath путь к папке (используется только для папок, для файлов не подойдет)
      */
     public void checkFolderPath(String folderPath) {
-        if (!folderPath.matches("^(?!.*//)(?!.*\\.{1,2})([\\w\\-]+/)*$")) {
+        if (!folderPath.matches("^(?!.*//)(?!.*\\.{1,2})([\\p{L}\\d _-]+/)*$")) {
             throw new InvalidFolderPathException("Недопустимый путь к папке: " + folderPath);
         }
     }

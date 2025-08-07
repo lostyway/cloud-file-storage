@@ -6,6 +6,7 @@ import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -280,8 +281,14 @@ public class FileController {
         return fileStorageService.downloadResource(path, response);
     }
 
-//    @GetMapping("/resource/move")
-//    public ResponseEntity<StorageResourceDTO> replaceResource(@RequestParam("from") String oldPath,
-//                                                              @RequestParam("to") String newPath) {
-//    }
+    @GetMapping("/resource/move")
+    public ResponseEntity<StorageResourceDTO> replaceResource(
+            @Parameter(description = "Пример пути откуда берем или где переименовываем", example = "test/test2")
+            @RequestParam("from") String oldPath,
+            @Parameter(description = "Пример пути куда переносим или, если тот же путь --> переименовываем", example = "test/test2/test3")
+            @RequestParam("to") String newPath) {
+        fileStorageService.createUserRootFolder();
+        StorageResourceDTO result = fileStorageService.replaceResource(oldPath, newPath);
+        return ResponseEntity.ok(result);
+    }
 }

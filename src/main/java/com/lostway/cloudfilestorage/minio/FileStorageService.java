@@ -692,4 +692,14 @@ public class FileStorageService {
         return ResponseEntity.ok()
                 .body(stream);
     }
+
+    /**
+     * Метод перемещения ресурса в другую папку или же переименования ресурса (если корневой путь такой же).
+     * @param oldPath старый путь. Пример: test/test2
+     * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
+     * @return Новый вид ресурса
+     */
+    public StorageResourceDTO replaceResource(String oldPath, String newPath) {
+        return null;
+    }
 }
