@@ -9,6 +9,7 @@ import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
+import liquibase.util.StringUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.StreamSupport;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -290,6 +292,40 @@ public class FileStorageService {
         } catch (Exception e) {
             throw new FileStorageException("Ошибка при попытке получить информацию о ресурсах в папке", e);
         }
+    }
+
+    /**
+     * Рекурсивно ищет файлы в системе начиная с root папки пользователя.
+     *
+     * @param query ресурс, который ищем
+     */
+    public List<StorageResourceDTO> searchResource(String query) {
+        if (isRootFolder(query)) {
+            throw new IllegalArgumentException("Параметр запроса не может быть пустым или корневой папкой");
+        }
+
+        if (query.contains("..") || query.contains("/") || query.contains("\\")) {
+            throw new InvalidFolderPathException("Поисковый запрос содержит недопустимые элементы: " + query);
+        }
+
+        if (!query.matches("^[\\p{L}\\p{N} _\\-.]{1,100}$")) {
+            throw new InvalidFolderPathException("Недопустимый путь: " + query);
+        }
+
+        var results = minioClient.listObjects(
+                ListObjectsArgs.builder()
+                        .bucket(bucketName)
+                        .prefix(getRootFolder())
+                        .recursive(true)
+                        .build());
+
+
+        return StreamSupport.stream(results.spliterator(), false)
+                .map(this::getItemSafe)
+                .filter(Objects::nonNull)
+                .filter(item -> getNameFromPath(item.objectName().toLowerCase()).equals(query.toLowerCase()))
+                .map(this::itemToDto)
+                .toList();
     }
 
     /**
@@ -800,6 +836,34 @@ public class FileStorageService {
         if (doesResourceExists(newFullPath)) {
             log.error("Ресурс уже есть в конченом пути: {}", newFullPath);
             throw new ResourceInStorageAlreadyExists("Ресурс уже существует в конченом пути");
+        }
+    }
+
+    /**
+     * Преобразует ресурс в его DTO
+     * @param item файл/папка
+     * @return DTO
+     */
+    private StorageResourceDTO itemToDto(Item item) {
+        String path = getParentFolders(item.objectName());
+        String name = getNameFromPath(item.objectName());
+
+        return isFolderPath(item.objectName())
+                ? StorageFolderAnswerDTO.getDefault(path, name)
+                : StorageAnswerDTO.getDefault(path, name, item.size());
+    }
+
+    /**
+     * Безопасно получает файл из Result(Item)
+     * @param itemResult Result<Item>
+     * @return Item
+     */
+    private Item getItemSafe(Result<Item> itemResult) {
+        try {
+            return itemResult.get();
+        } catch (Exception e) {
+            log.error("Ошибка при получении объекта из Minio", e);
+            return null;
         }
     }
 }

@@ -59,8 +59,7 @@ public class FileController {
     @GetMapping("/resource")
     public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam(name = "path") String path) {
         fileStorageService.createUserRootFolder();
-        StorageResourceDTO result = fileStorageService.getInformationAboutResource(path);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(fileStorageService.getInformationAboutResource(path));
     }
 
     @Operation(
@@ -84,8 +83,7 @@ public class FileController {
     @PostMapping("/directory")
     public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam(name = "path") String path) {
         fileStorageService.createUserRootFolder();
-        StorageFolderAnswerDTO result = fileStorageService.createEmptyFolder(path);
-        return ResponseEntity.status(CREATED).body(result);
+        return ResponseEntity.status(CREATED).body(fileStorageService.createEmptyFolder(path));
     }
 
     @Operation(
@@ -124,8 +122,7 @@ public class FileController {
     @GetMapping("/directory")
     public ResponseEntity<List<StorageResourceDTO>> getDirectoryFiles(@RequestParam(value = "path", required = false) String path) {
         fileStorageService.createUserRootFolder();
-        List<StorageResourceDTO> result = fileStorageService.getFilesFromDirectory(path);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(fileStorageService.getFilesFromDirectory(path));
     }
 
     @Operation(
@@ -148,8 +145,7 @@ public class FileController {
     public ResponseEntity<StorageAnswerDTO> uploadResource(@RequestParam(value = "path", required = false) String path,
                                                            @RequestParam("file") MultipartFile file) {
         fileStorageService.createUserRootFolder();
-        StorageAnswerDTO result = fileStorageService.uploadFile(path, file);
-        return ResponseEntity.status(CREATED).body(result);
+        return ResponseEntity.status(CREATED).body(fileStorageService.uploadFile(path, file));
     }
 
     @Operation(
@@ -200,7 +196,28 @@ public class FileController {
             @Parameter(description = "Пример пути куда переносим или, если тот же путь --> переименовываем", example = "test/test2/test3")
             @RequestParam("to") String newPath) {
         fileStorageService.createUserRootFolder();
-        StorageResourceDTO result = fileStorageService.replaceAction(oldPath, newPath);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(fileStorageService.replaceAction(oldPath, newPath));
+    }
+
+    @Operation(
+            summary = "Поиск ресурса по всей системе"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Успешное отображение найденного ресурса",
+                    content = @Content(schema = @Schema(implementation = StorageResourceDTO.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Невалидный или отсутствующий путь.",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
+            )
+    })
+    @GetMapping("/resource/search")
+    public ResponseEntity<List<StorageResourceDTO>> searchResource(
+            @Parameter(description = "Запрос на поиск", example = "test2") @RequestParam("query") String query) {
+        fileStorageService.createUserRootFolder();
+        return ResponseEntity.ok(fileStorageService.searchResource(query));
     }
 }
