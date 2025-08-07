@@ -634,6 +634,177 @@ class FileControllerTest extends IntegrationTest {
     }
 
     @Nested
+    @DisplayName("Проверка метода перемещения и переименования ресурса")
+    class ReplaceResourceMethod {
+
+        @Test
+        @DisplayName("Проверка, что при переименовании ресурса все вложенные файлы тоже перемещаются")
+        void whenRenameResourceIsSuccessful() throws Exception {
+            mockMvc.perform(post(makeEmptyFolderOrGetInformationAboutFolder)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(post(makeEmptyFolderOrGetInformationAboutFolder)
+                            .param("path", "test/test2"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test2"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/test2"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/test2/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(get(replaceApi)
+                            .param("from", "test")
+                            .param("to", "test2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test2"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test2/test2"))
+                    .andExpect(status().isConflict());
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test2"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2/test2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test2/"))
+                    .andExpect(jsonPath("$.name").value("test2"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2/test2/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test2/test2/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test2/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+        }
+
+        @Test
+        @DisplayName("Проверка, что при перемещении ресурса во внутреннюю папку все вложенные файлы тоже перемещаются и папка удаляется")
+        void whenRenameResourceInIncludeFolder() throws Exception {
+            mockMvc.perform(post(makeEmptyFolderOrGetInformationAboutFolder)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(post(makeEmptyFolderOrGetInformationAboutFolder)
+                            .param("path", "test/test2"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value("test2"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/test2"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/test2/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(post(makeEmptyFolderOrGetInformationAboutFolder)
+                            .param("path", "test/test2/test3"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/test2/"))
+                    .andExpect(jsonPath("$.name").value("test3"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "test/test2/test3"))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test/test2/test3/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(get(replaceApi)
+                            .param("from", "test/test2")
+                            .param("to", "/test2"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test2"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(multipart(uploadOrGetInformation)
+                            .file(file)
+                            .param("path", "/test2"))
+                    .andExpect(status().isConflict());
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder))
+                    .andExpect(jsonPath("$.name").value("test"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test2/"))
+                    .andExpect(jsonPath("$.name").value("test.txt"))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2/test3"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test2/"))
+                    .andExpect(jsonPath("$.name").value("test3"))
+                    .andExpect(jsonPath("$.type").value(FileType.DIRECTORY.name()));
+
+            mockMvc.perform(get(uploadOrGetInformation)
+                            .param("path", "test2/test3/test.txt"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.path").value(rootFolder + "test2/test3/"))
+                    .andExpect(jsonPath("$.name").value(getNameFromPath(file.getOriginalFilename())))
+                    .andExpect(jsonPath("$.type").value(FileType.FILE.name()));
+        }
+    }
+
+
+    @Nested
     @DisplayName("Проверка методов под неавторизованным пользователем")
     class WithAnonumUser {
 
