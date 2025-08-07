@@ -26,12 +26,12 @@ services:
       - '5438:5432'
     volumes:
       - postgresvolume:/var/lib/postgresql/data
-    restart: always
+    restart: unless-stopped
   redis:
     image: 'redis:7.2-alpine'
     ports:
       - '6379:6379'
-    restart: always
+    restart: unless-stopped
     volumes:
       - redisvolume:/data
 

@@ -404,9 +404,7 @@ public class FileStorageService {
      *
      * @param path путь до ресурса
      * @return Информация о ресурсе (размер и т.п.)
-     * @throws ErrorResponseException ошибка, если ресурс не был найден (может папка)
      */
-    @SneakyThrows
     private StatObjectResponse getStatAboutFile(String path) {
         log.info("получение статистики о файле: {}", path);
         StatObjectResponse stat = null;
@@ -423,6 +421,9 @@ public class FileStorageService {
                 log.error("Получена ошибка при поиске файла. Файл не был найден: NoSuchKey: {}", path);
                 throw new FileStorageNotFoundException("Файл не был найден");
             }
+        } catch (Exception e) {
+            log.error("Ошибка при чтении статистики файла: {}", path);
+            throw new FileStorageException("Ошибка при чтении статистики файла: " + path, e);
         }
 
         if (stat == null) {
@@ -434,7 +435,7 @@ public class FileStorageService {
     }
 
     /**
-     * Метод проверяет существует ли файл
+     * Метод проверяет, существует ли файл
      *
      * @param path полный путь до файла
      * @return true -> существует<p>
@@ -801,5 +802,4 @@ public class FileStorageService {
             throw new ResourceInStorageAlreadyExists("Ресурс уже существует в конченом пути");
         }
     }
-
 }

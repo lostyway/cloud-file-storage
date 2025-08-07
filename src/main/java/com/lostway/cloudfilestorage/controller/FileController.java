@@ -54,21 +54,6 @@ public class FileController {
                     responseCode = "400",
                     description = "Невалидный или отсутствующий путь.",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Ресурс не найден.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/resource")
@@ -94,27 +79,7 @@ public class FileController {
                     responseCode = "400",
                     description = "Невалидный или отсутствующий путь.",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Родительская папка не существует.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "Папка уже существует.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
+            )
     })
     @PostMapping("/directory")
     public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam(name = "path") String path) {
@@ -136,21 +101,6 @@ public class FileController {
                     responseCode = "400",
                     description = "Невалидный или отсутствующий путь.",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Ресурс не найден.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @DeleteMapping("/resource")
@@ -169,26 +119,6 @@ public class FileController {
                     responseCode = "200",
                     description = "Успешное получение информации о содержимом пути.",
                     content = @Content(schema = @Schema(implementation = StorageResourceDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Невалидный или отсутствующий путь.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Ресурс не найден.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/directory")
@@ -211,26 +141,6 @@ public class FileController {
             @ApiResponse(
                     responseCode = "400",
                     description = "Невалидный или отсутствующий путь.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Ресурс не найден.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "Файл уже существует.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
@@ -257,21 +167,6 @@ public class FileController {
                     responseCode = "400",
                     description = "Невалидный или отсутствующий путь.",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Ресурс не найден.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
     @GetMapping("/resource/download")
@@ -295,26 +190,6 @@ public class FileController {
             @ApiResponse(
                     responseCode = "400",
                     description = "Невалидный или отсутствующий путь.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Пользователь не авторизован.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Ресурс не найден.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "Ресурс, лежащий по пути to уже существует.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Неизвестная ошибка.",
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
