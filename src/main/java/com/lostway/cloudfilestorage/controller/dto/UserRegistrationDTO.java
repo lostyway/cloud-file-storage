@@ -1,16 +1,12 @@
 package com.lostway.cloudfilestorage.controller.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-/**
- * DTO который пользователь присылает при регистрации
- *
- * @param username
- * @param password
- */
+@Schema(description = "DTO для регистрации")
 public record UserRegistrationDTO(
-        @NotBlank @Size(min = 3) String username,
-        @NotBlank @Size(min = 3) String password
+        @Schema(description = "Логин для регистрации (должен быть уникальным)", example = "test") @NotBlank @Size(min = 3) String username,
+        @Schema(description = "Пароль для регистрации", example = "123") @NotBlank @Size(min = 3) @NotBlank @Size(min = 3) String password
 ) {
 }
