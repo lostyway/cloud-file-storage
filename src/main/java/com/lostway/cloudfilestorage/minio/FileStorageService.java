@@ -317,13 +317,9 @@ public class FileStorageService {
      */
     private boolean doesResourceExists(String parentFolder) {
         try {
-            getStatAboutFile(parentFolder);
-            return true;
-        } catch (ErrorResponseException e) {
-            if (e.errorResponse().code().equals("NoSuchKey")) {
-                return checkIsFolderExists(parentFolder);
-            }
-            throw new FileStorageException("Ошибка проверки существования объекта", e);
+            return isFolderPath(parentFolder)
+                    ? checkIsFolderExists(parentFolder)
+                    : isFileExists(parentFolder);
         } catch (FileStorageNotFoundException e) {
             log.warn("Файл или папка не была найдена: {}", parentFolder);
             return false;
@@ -729,6 +725,7 @@ public class FileStorageService {
 
     /**
      * Возвращаем DTO без повторных проверок валидации
+     *
      * @param resourcePath итоговый путь к ресурсу
      * @return DTO файла/папки
      */
