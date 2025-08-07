@@ -70,17 +70,13 @@ public class FileStorageService {
      */
     public StorageResourceDTO getInformationAboutResource(String path) {
         try {
-            path = getFullUserPath(path);
+            path = Objects.equals(path, getFullUserPath(path)) ? path : getFullUserPath(path);
+            validateResourcePath(path);
+            String folderPath = checkAndGetParentFolders(path);
 
-            if (isFolderPath(path)) {
-                checkFolderPath(path);
-                return tryReturnAsFolder(path);
-            } else {
-                validatePathToFile(path);
-                checkAndGetParentFolders(path);
-                StatObjectResponse stat = getStatAboutFile(path);
-                return generateDTOFromTypeOfObject(path, stat);
-            }
+            return isFolderPath(path)
+                    ? tryReturnAsFolder(path)
+                    : StorageAnswerDTO.getDefault(folderPath, getNameFromPath(path), getStatAboutFile(path).size());
 
         } catch (FileStorageNotFoundException |
                  InvalidFolderPathException |
@@ -166,7 +162,7 @@ public class FileStorageService {
         try {
             String userPath = getFullUserPath(path);
 
-            if (!doesObjectExists(userPath)) {
+            if (!doesResourceExists(userPath)) {
                 log.error("Ресурс для скачивания не был найден: {}", userPath);
                 throw new FileStorageNotFoundException("Ресурс для скачивания не был найден");
             }
@@ -195,7 +191,7 @@ public class FileStorageService {
         try {
             String pathWithUser = getFullUserPath(path);
 
-            if (!doesObjectExists(pathWithUser)) {
+            if (!doesResourceExists(pathWithUser)) {
                 throw new FileStorageNotFoundException("Папка/Файл не существует");
             }
 
@@ -313,13 +309,13 @@ public class FileStorageService {
     }
 
     /**
-     * Проверяет существует ли объект по указанному пути в системе (для валидации дубликатов)
+     * Проверяет, существует ли объект по указанному пути в системе (для валидации дубликатов)
      *
      * @param parentFolder путь до объекта
      * @return true --> объект существует <p>
      * false --> объект не существует
      */
-    private boolean doesObjectExists(String parentFolder) {
+    private boolean doesResourceExists(String parentFolder) {
         try {
             getStatAboutFile(parentFolder);
             return true;
@@ -355,21 +351,6 @@ public class FileStorageService {
     }
 
     /**
-     * Генерация DTO на вывод в зависимости от того файл это или папка
-     *
-     * @param path путь до ресурса
-     * @param stat статистика. По ней измеряется размер файла (если 0 --> папка)
-     * @return DTO для ресурса
-     */
-    private StorageResourceDTO generateDTOFromTypeOfObject(String path, StatObjectResponse stat) {
-        if (stat.size() > 0) {
-            return StorageAnswerDTO.getDefault(checkAndGetParentFolders(path), getNameFromPath(path), stat.size());
-        } else {
-            return StorageFolderAnswerDTO.getDefault(checkAndGetParentFolders(path), getNameFromPath(path));
-        }
-    }
-
-    /**
      * Метод поиска папки и возврата DTO папки.
      *
      * @param path путь до папки
@@ -377,8 +358,6 @@ public class FileStorageService {
      */
     private StorageFolderAnswerDTO tryReturnAsFolder(String path) {
         try {
-            checkAndGetParentFolders(path);
-
             if (!checkIsFolderExists(path)) {
                 throw new FileStorageNotFoundException("Ресурс не найден: " + path);
             }
@@ -464,14 +443,6 @@ public class FileStorageService {
     }
 
     /**
-     * Получение полного пути до ресурса пользователя (должен вызываться первым делом, чтобы получать root папку пользователя)
-     */
-    private String getFullUserPath(String path) {
-        String newPath = getStandardFullRootFolder(path);
-        return isFolderPath(newPath) && !newPath.endsWith("/") ? newPath + "/" : newPath;
-    }
-
-    /**
      * Проверка пути до файла и существует ли он
      *
      * @param path путь до ресурса
@@ -481,7 +452,7 @@ public class FileStorageService {
         validateResourcePath(path);
         log.debug("Проверка существования ресурса:, {}", path);
 
-        if (doesObjectExists(path)) {
+        if (doesResourceExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
         }
@@ -495,7 +466,6 @@ public class FileStorageService {
      * @param file       файл
      * @param objectName путь, куда загружать
      */
-
     @SneakyThrows
     private void uploadFileInFolder(MultipartFile file, String objectName) {
         try (InputStream inputStream = file.getInputStream()) {
@@ -696,7 +666,7 @@ public class FileStorageService {
      * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
      * @return Новый вид ресурса
      */
-    public StorageResourceDTO replaceResource(String oldPath, String newPath) {
+    public StorageResourceDTO replaceAction(String oldPath, String newPath) {
         if (isRootFolder(oldPath) || isRootFolder(newPath)) {
             throw new IllegalArgumentException("Путь не может быть корнем папки или пустым");
         }
@@ -715,7 +685,72 @@ public class FileStorageService {
         validateResourcePath(oldFullPath);
         validateResourcePath(newFullPath);
 
-        //todo доделать метод перемещения ресурсов
+        if (!doesResourceExists(oldFullPath)) {
+            log.error("Ресурс не был найден: {}", oldFullPath);
+            throw new FileStorageNotFoundException("Ресурс не существует в системе");
+        }
+
+        String newResourcePath = Objects.equals(getParentFolders(oldFullPath), getParentFolders(newFullPath))
+                ? renameResource(oldFullPath, newFullPath)
+                : replaceResource(oldFullPath, newFullPath);
+
+        return getInfoAboutResourceWithoutValidation(newResourcePath);
+    }
+
+    /**
+     * Перемещает ресурс в новый путь
+     *
+     * @param oldFullPath старый путь к ресурсу
+     * @param newFullPath новый путь к ресурсу
+     * @return Новый итоговый путь к ресурсу
+     */
+    private String replaceResource(String oldFullPath, String newFullPath) {
+        log.debug("Пути к изменяемым ресурсам не равны. Ресурсы будут перемещены из старого пути: {} в новый путь: {}",
+                oldFullPath, newFullPath);
+
         return null;
+
+    }
+
+
+    /**
+     * Переименовывает и сохраняет ресурс
+     *
+     * @param oldPathName старый путь к ресурсу
+     * @param newPathName новый путь к ресурсу (новое имя)
+     * @return Новый итоговый путь к ресурсу
+     */
+    private String renameResource(String oldPathName, String newPathName) {
+        log.debug("Пути к изменяемым ресурсам равны. Переименование ресурсов. Старое имя: {}, Новое имя: {}",
+                oldPathName, newPathName);
+
+        return null;
+    }
+
+    /**
+     * Возвращаем DTO без повторных проверок валидации
+     * @param resourcePath итоговый путь к ресурсу
+     * @return DTO файла/папки
+     */
+    private StorageResourceDTO getInfoAboutResourceWithoutValidation(String resourcePath) {
+        try {
+            if (isFolderPath(resourcePath)) {
+                return tryReturnAsFolder(resourcePath);
+            } else {
+                String path = checkAndGetParentFolders(resourcePath);
+                String fileName = getNameFromPath(resourcePath);
+                long fileSize = getStatAboutFile(resourcePath).size();
+                return StorageAnswerDTO.getDefault(path, fileName, fileSize);
+            }
+        } catch (FileStorageNotFoundException |
+                 InvalidFolderPathException |
+                 FileStorageException |
+                 ParentFolderNotFoundException e) {
+            log.info("Ошибка: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.info("Ошибка: {}", e.getMessage());
+            throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
+        }
     }
 }

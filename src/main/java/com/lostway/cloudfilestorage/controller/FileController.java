@@ -288,7 +288,7 @@ public class FileController {
             @Parameter(description = "Пример пути куда переносим или, если тот же путь --> переименовываем", example = "test/test2/test3")
             @RequestParam("to") String newPath) {
         fileStorageService.createUserRootFolder();
-        StorageResourceDTO result = fileStorageService.replaceResource(oldPath, newPath);
+        StorageResourceDTO result = fileStorageService.replaceAction(oldPath, newPath);
         return ResponseEntity.ok(result);
     }
 }

@@ -57,6 +57,7 @@ public class MinioStorageUtils {
         return !lastSegment.contains(".");
     }
 
+
     /**
      * Возвращает путь до файла не включая этот файл<p>
      * test/test2.txt --> rootFolder/test/
@@ -104,13 +105,12 @@ public class MinioStorageUtils {
         return path.replaceAll("^/+", "");
     }
 
-
     /**
      * Получение userID текущего пользователя.
      *
      * @return UserID из контекста безопасности
      */
-    public Long getCurrentUserId() {
+    private Long getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         if (principal instanceof CustomUserDetails userDetails) {
@@ -129,20 +129,17 @@ public class MinioStorageUtils {
         return "user-" + userId + "-files/";
     }
 
-    public String getStandardFullRootFolder(String path) {
-        String newPath = getStandardPath(path);
-        return getRootFolder() + newPath;
+    /**
+     * Получение полного пути до ресурса пользователя (должен вызываться первым делом, чтобы получать root папку пользователя)
+     */
+    public String getFullUserPath(String path) {
+        String newPath = getStandardFullRootFolder(path);
+        return isFolderPath(newPath) && !newPath.endsWith("/") ? newPath + "/" : newPath;
     }
 
-    /**
-     * Возвращает первую папку в пути
-     *
-     * @param folderPath Полный путь
-     * @return Первую папку пути
-     */
-    public String getStartFolder(String folderPath) {
-        int startFolderInd = folderPath.indexOf("/");
-        return folderPath.substring(0, startFolderInd + 1);
+    private String getStandardFullRootFolder(String path) {
+        String newPath = getStandardPath(path);
+        return getRootFolder() + newPath;
     }
 
     /**
