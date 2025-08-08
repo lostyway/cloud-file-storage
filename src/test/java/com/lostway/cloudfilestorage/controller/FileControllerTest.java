@@ -47,7 +47,7 @@ class FileControllerTest extends IntegrationTest {
     private final String searchApi = "/api/resource/search";
 
     private final MockMultipartFile file = new MockMultipartFile(
-            "file",
+            "object",
             "C:/test.txt",
             MediaType.TEXT_PLAIN_VALUE,
             "Hello, World".getBytes()
