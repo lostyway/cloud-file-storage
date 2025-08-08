@@ -237,8 +237,8 @@ public class FileStorageService {
      */
     public StorageResourceDTO replaceAction(String oldPath, String newPath) {
 
-        String oldFullPath = getFullUserPath(oldPath);
-        String newFullPath = getFullUserPath(newPath);
+        String oldFullPath = oldPath.startsWith(getRootFolder()) ? oldPath : getFullUserPath(oldPath);
+        String newFullPath = newPath.startsWith(getRootFolder()) ? newPath : getFullUserPath(newPath);
 
         preparationBeforeMoving(oldFullPath, newFullPath);
 

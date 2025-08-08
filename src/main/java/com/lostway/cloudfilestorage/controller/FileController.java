@@ -143,7 +143,7 @@ public class FileController {
     })
     @PostMapping(value = "/resource", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<StorageAnswerDTO> uploadResource(@RequestParam(value = "path", required = false) String path,
-                                                           @RequestParam("file") MultipartFile file) {
+                                                           @RequestParam("object") MultipartFile file) {
         fileStorageService.createUserRootFolder();
         return ResponseEntity.status(CREATED).body(fileStorageService.uploadFile(path, file));
     }
