@@ -18,11 +18,10 @@
 - Spring Data Redis + Spring Session  
 - MinIO (S3-совместимое хранилище)  
 - Spring Security  
-- Liquibase (миграции БД)  
-- MapStruct (маппинг DTO)  
+- Liquibase
 - Docker, Docker Compose  
 - Maven  
-- Testcontainers (для интеграционных тестов)
+- Testcontainers
 
 ---
 
@@ -30,8 +29,8 @@
 
 - Docker
 - Docker Compose
-- JDK 17 (если запускать локально без Docker)
-- Maven 3.8+ (для сборки)
+- JDK 17
+- Maven 3.8+
 
 ---
 
