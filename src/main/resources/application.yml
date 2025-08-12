@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: cloud-file-storage
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5438/filestorage}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+  boot:
+    admin:
+      client:
+        url: http://ddh-admin-service:8085
+
+  liquibase:
+    enabled: true
+    change-log: db/changelog/master.xml
+  servlet:
+    multipart:
+      max-file-size: 1GB
+      max-request-size: 1GB
+
+  mvc:
+    async:
+      request-timeout: 300000
+
+api:
+  url: /api
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://ddh-eureka-server:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+  endpoint:
+    health:
+      show-details: always
+
+minio:
+  url: http://minio:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket.name: user-files
+
+server:
+  port: 8088
+
+logging:
+  level:
+    com.lostway.cloudfilestorage.*: debug
+
+secret:
+  key: verylongsecretkeyfromemvfilegitlab2025

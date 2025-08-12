@@ -1,22 +1,20 @@
-FROM eclipse-temurin:17-jdk-alpine as builder
+FROM maven:3.9.8-eclipse-temurin-21 AS builder
 
 WORKDIR /app
 
-COPY .mvn/ .mvn/
-COPY mvnw ./
-COPY pom.xml ./
+COPY pom.xml .
+COPY jwt-security-lib/pom.xml jwt-security-lib/pom.xml
+COPY jwt-security-lib/src jwt-security-lib/src
+COPY services services
 
-RUN ./mvnw dependency:go-offline
+RUN mvn clean package -pl services/cloud-file-storage -am -DskipTests
 
-COPY src ./src
-RUN ./mvnw package -DskipTests
-
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-COPY --from=builder /app/target/cloud-file-storage-*.jar /app/app.jar
+COPY --from=builder /app/services/cloud-file-storage/target/cloud-file-storage-0.0.1-SNAPSHOT.jar app.jar
 
-EXPOSE 8081
+EXPOSE 8088
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

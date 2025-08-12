@@ -17,16 +17,6 @@ services:
       - cloudfilestoragevolume:/app/data
     restart: unless-stopped
 
-  frontend:
-    build:
-      context: ../cloud-storage-frontend
-    container_name: frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - cloudfilestorage
-    restart: unless-stopped
-
   postgres:
     image: 'postgres:17'
     environment:
@@ -38,13 +28,6 @@ services:
     volumes:
       - postgresvolume:/var/lib/postgresql/data
     restart: unless-stopped
-  redis:
-    image: 'redis:7.2-alpine'
-    ports:
-      - '6379:6379'
-    restart: unless-stopped
-    volumes:
-      - redisvolume:/data
 
   minio:
     image: minio/minio:latest
@@ -63,7 +46,5 @@ volumes:
     name: cloudfilestoragevolume
   postgresvolume:
     name: postgresvolume
-  redisvolume:
-    name: redisvolume
   minio_data:
     name: minio_data

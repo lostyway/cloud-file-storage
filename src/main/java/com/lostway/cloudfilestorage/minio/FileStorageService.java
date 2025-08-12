@@ -4,10 +4,12 @@ import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
+import com.lostway.jwtsecuritylib.JwtUtil;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -39,6 +41,7 @@ import static com.lostway.cloudfilestorage.utils.MinioStorageUtils.*;
 public class FileStorageService {
 
     private final MinioClient minioClient;
+    private final JwtUtil jwtUtil;
 
     @Value("${minio.bucket.name}")
     private String bucketName;
@@ -70,9 +73,9 @@ public class FileStorageService {
      * @see StorageAnswerDTO
      * @see StorageFolderAnswerDTO
      */
-    public StorageResourceDTO getInformationAboutResource(String path) {
+    public StorageResourceDTO getInformationAboutResource(String path, HttpServletRequest request) {
         try {
-            path = Objects.equals(path, getFullUserPath(path)) ? path : getFullUserPath(path);
+            path = Objects.equals(path, getFullUserPath(path, request, jwtUtil)) ? path : getFullUserPath(path, request, jwtUtil);
             validateResourcePath(path);
             String folderPath = checkAndGetParentFolders(path);
 
@@ -104,9 +107,9 @@ public class FileStorageService {
      * @throws InvalidFolderPathException     невалидный путь до папки
      */
 
-    public StorageFolderAnswerDTO createEmptyFolder(String folderPath) {
+    public StorageFolderAnswerDTO createEmptyFolder(String folderPath, HttpServletRequest request) {
         try {
-            String normalPath = getFullUserPath(folderPath);
+            String normalPath = getFullUserPath(folderPath, request, jwtUtil);
             validatePathAndCheckIsResourceAlreadyExists(normalPath);
             String parentFolders = checkAndGetParentFolders(normalPath);
             String pathName = getNameFromPath(normalPath);
@@ -130,11 +133,11 @@ public class FileStorageService {
      * @return Информация о созданном файле
      * @throws ResourceInStorageAlreadyExists > файл уже существует в этой папке
      */
-    public StorageAnswerDTO uploadFile(String path, MultipartFile file) {
+    public StorageAnswerDTO uploadFile(String path, MultipartFile file, HttpServletRequest request) {
         try {
             log.debug("Загрузка файла: {}, File: {}", path, file);
             String filename = getNameFromPath(getOriginalFileName(file));
-            String normalizedPath = getFullUserPath(path);
+            String normalizedPath = getFullUserPath(path, request, jwtUtil);
             String objectName = normalizedPath + filename;
             log.debug("objectName: {}", objectName);
             log.debug("normalizedPath: {}", normalizedPath);
@@ -159,9 +162,9 @@ public class FileStorageService {
      * @param path путь до файла
      * @return ресурс для скачиваения
      */
-    public ResponseEntity<StreamingResponseBody> downloadResource(String path, HttpServletResponse response) {
+    public ResponseEntity<StreamingResponseBody> downloadResource(String path, HttpServletResponse response, HttpServletRequest request) {
         try {
-            String userPath = getFullUserPath(path);
+            String userPath = getFullUserPath(path, request, jwtUtil);
 
             if (!doesResourceExists(userPath)) {
                 log.error("Ресурс для скачивания не был найден: {}", userPath);
@@ -188,9 +191,9 @@ public class FileStorageService {
      *
      * @param path путь до файла/папки
      */
-    public void delete(String path) {
+    public void delete(String path, HttpServletRequest request) {
         try {
-            String pathWithUser = getFullUserPath(path);
+            String pathWithUser = getFullUserPath(path, request, jwtUtil);
 
             if (!doesResourceExists(pathWithUser)) {
                 throw new FileStorageNotFoundException("Папка/Файл не существует");
@@ -212,9 +215,9 @@ public class FileStorageService {
      * @param path путь до папки, по которой нужно вернуть информацию.
      * @return Коллекция DTO с файлами и папками, которые располагаются по пути.
      */
-    public List<StorageResourceDTO> getFilesFromDirectory(String path) {
+    public List<StorageResourceDTO> getFilesFromDirectory(String path, HttpServletRequest request) {
 
-        String fullPath = getFullUserPath(path);
+        String fullPath = getFullUserPath(path, request, jwtUtil);
 
         if (!isFolderPath(fullPath)) {
             throw new InvalidFolderPathException("Необходимо ввести путь к папке, а не файлу");
@@ -235,10 +238,10 @@ public class FileStorageService {
      * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
      * @return Новый вид ресурса
      */
-    public StorageResourceDTO replaceAction(String oldPath, String newPath) {
+    public StorageResourceDTO replaceAction(HttpServletRequest request, String oldPath, String newPath) {
 
-        String oldFullPath = oldPath.startsWith(getRootFolder()) ? oldPath : getFullUserPath(oldPath);
-        String newFullPath = newPath.startsWith(getRootFolder()) ? newPath : getFullUserPath(newPath);
+        String oldFullPath = oldPath.startsWith(getRootFolder(request, jwtUtil)) ? oldPath : getFullUserPath(oldPath, request, jwtUtil);
+        String newFullPath = newPath.startsWith(getRootFolder(request, jwtUtil)) ? newPath : getFullUserPath(newPath, request, jwtUtil);
 
         preparationBeforeMoving(oldFullPath, newFullPath);
 
@@ -298,7 +301,7 @@ public class FileStorageService {
      *
      * @param query ресурс, который ищем
      */
-    public List<StorageResourceDTO> searchResource(String query) {
+    public List<StorageResourceDTO> searchResource(HttpServletRequest request, String query) {
         if (isRootFolder(query)) {
             throw new IllegalArgumentException("Параметр запроса не может быть пустым или корневой папкой");
         }
@@ -314,7 +317,7 @@ public class FileStorageService {
         var results = minioClient.listObjects(
                 ListObjectsArgs.builder()
                         .bucket(bucketName)
-                        .prefix(getRootFolder())
+                        .prefix(getRootFolder(request, jwtUtil))
                         .recursive(true)
                         .build());
 
@@ -498,8 +501,8 @@ public class FileStorageService {
     /**
      * Создание корневой папки пользователя
      */
-    public void createUserRootFolder() {
-        makeEmptyFolder(getRootFolder());
+    public void createUserRootFolder(HttpServletRequest request) {
+        makeEmptyFolder(getRootFolder(request, jwtUtil));
     }
 
     /**
@@ -840,6 +843,7 @@ public class FileStorageService {
 
     /**
      * Преобразует ресурс в его DTO
+     *
      * @param item файл/папка
      * @return DTO
      */
@@ -854,6 +858,7 @@ public class FileStorageService {
 
     /**
      * Безопасно получает файл из Result(Item)
+     *
      * @param itemResult Result<Item>
      * @return Item
      */

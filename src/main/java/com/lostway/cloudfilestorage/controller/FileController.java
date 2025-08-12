@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -57,9 +58,9 @@ public class FileController {
             )
     })
     @GetMapping("/resource")
-    public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam(name = "path") String path) {
-        fileStorageService.createUserRootFolder();
-        return ResponseEntity.ok(fileStorageService.getInformationAboutResource(path));
+    public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam(name = "path") String path, HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return ResponseEntity.ok(fileStorageService.getInformationAboutResource(path, request));
     }
 
     @Operation(
@@ -81,9 +82,9 @@ public class FileController {
             )
     })
     @PostMapping("/directory")
-    public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam(name = "path") String path) {
-        fileStorageService.createUserRootFolder();
-        return ResponseEntity.status(CREATED).body(fileStorageService.createEmptyFolder(path));
+    public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam(name = "path") String path, HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return ResponseEntity.status(CREATED).body(fileStorageService.createEmptyFolder(path, request));
     }
 
     @Operation(
@@ -102,9 +103,9 @@ public class FileController {
             )
     })
     @DeleteMapping("/resource")
-    public ResponseEntity<Void> deleteResource(@RequestParam String path) {
-        fileStorageService.createUserRootFolder();
-        fileStorageService.delete(path);
+    public ResponseEntity<Void> deleteResource(@RequestParam String path, HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        fileStorageService.delete(path, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -120,9 +121,9 @@ public class FileController {
             )
     })
     @GetMapping("/directory")
-    public ResponseEntity<List<StorageResourceDTO>> getDirectoryFiles(@RequestParam(value = "path", required = false) String path) {
-        fileStorageService.createUserRootFolder();
-        return ResponseEntity.ok(fileStorageService.getFilesFromDirectory(path));
+    public ResponseEntity<List<StorageResourceDTO>> getDirectoryFiles(@RequestParam(value = "path", required = false) String path, HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return ResponseEntity.ok(fileStorageService.getFilesFromDirectory(path, request));
     }
 
     @Operation(
@@ -143,9 +144,10 @@ public class FileController {
     })
     @PostMapping(value = "/resource", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<StorageAnswerDTO> uploadResource(@RequestParam(value = "path", required = false) String path,
-                                                           @RequestParam("object") MultipartFile file) {
-        fileStorageService.createUserRootFolder();
-        return ResponseEntity.status(CREATED).body(fileStorageService.uploadFile(path, file));
+                                                           @RequestParam("object") MultipartFile file,
+                                                           HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return ResponseEntity.status(CREATED).body(fileStorageService.uploadFile(path, file, request));
     }
 
     @Operation(
@@ -167,9 +169,10 @@ public class FileController {
     })
     @GetMapping("/resource/download")
     public ResponseEntity<StreamingResponseBody> downloadResource(@RequestParam(required = false) String path,
-                                                                  HttpServletResponse response) {
-        fileStorageService.createUserRootFolder();
-        return fileStorageService.downloadResource(path, response);
+                                                                  HttpServletResponse response,
+                                                                  HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return fileStorageService.downloadResource(path, response, request);
     }
 
     @Operation(
@@ -194,9 +197,10 @@ public class FileController {
             @Parameter(description = "Пример пути откуда берем или где переименовываем", example = "test/test2")
             @RequestParam("from") String oldPath,
             @Parameter(description = "Пример пути куда переносим или, если тот же путь --> переименовываем", example = "test/test2/test3")
-            @RequestParam("to") String newPath) {
-        fileStorageService.createUserRootFolder();
-        return ResponseEntity.ok(fileStorageService.replaceAction(oldPath, newPath));
+            @RequestParam("to") String newPath,
+            HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return ResponseEntity.ok(fileStorageService.replaceAction(request, oldPath, newPath));
     }
 
     @Operation(
@@ -216,8 +220,8 @@ public class FileController {
     })
     @GetMapping("/resource/search")
     public ResponseEntity<List<StorageResourceDTO>> searchResource(
-            @Parameter(description = "Запрос на поиск", example = "test2") @RequestParam("query") String query) {
-        fileStorageService.createUserRootFolder();
-        return ResponseEntity.ok(fileStorageService.searchResource(query));
+            @Parameter(description = "Запрос на поиск", example = "test2") @RequestParam("query") String query, HttpServletRequest request) {
+        fileStorageService.createUserRootFolder(request);
+        return ResponseEntity.ok(fileStorageService.searchResource(request, query));
     }
 }

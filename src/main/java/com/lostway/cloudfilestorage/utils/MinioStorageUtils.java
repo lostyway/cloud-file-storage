@@ -1,15 +1,15 @@
 package com.lostway.cloudfilestorage.utils;
 
-import com.lostway.cloudfilestorage.exception.dto.CantGetUserContextIdException;
 import com.lostway.cloudfilestorage.exception.dto.InvalidFolderPathException;
-import com.lostway.cloudfilestorage.security.CustomUserDetails;
-import lombok.experimental.UtilityClass;
+import com.lostway.jwtsecuritylib.JwtUtil;
+import io.jsonwebtoken.JwtException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
-@UtilityClass
+@Component
 public class MinioStorageUtils {
 
     /**
@@ -18,7 +18,7 @@ public class MinioStorageUtils {
      * @param folderPath полный путь до папки/файла
      * @return Имя файла/папки test/test2.txt --> test2.txt
      */
-    public String getNameFromPath(String folderPath) {
+    public static String getNameFromPath(String folderPath) {
         String trimmedPath = folderPath.endsWith("/")
                 ? folderPath.substring(0, folderPath.length() - 1)
                 : folderPath;
@@ -30,7 +30,7 @@ public class MinioStorageUtils {
     /**
      * Получение полного имени ресурса
      */
-    public String getOriginalFileName(MultipartFile file) {
+    public static String getOriginalFileName(MultipartFile file) {
         String originalFileName = file.getOriginalFilename();
 
         if (originalFileName == null || originalFileName.isBlank()) {
@@ -46,7 +46,7 @@ public class MinioStorageUtils {
      * @return true --> это папка<p>
      * false --> это файл
      */
-    public boolean isFolderPath(String path) {
+    public static boolean isFolderPath(String path) {
         if (path.endsWith("/")) {
             return true;
         }
@@ -67,7 +67,7 @@ public class MinioStorageUtils {
      * test/test2.txt --> rootFolder/test/<p>
      * test/test2/ --> rootFolder/test/
      */
-    public String getParentFolders(String folderPath) {
+    public static String getParentFolders(String folderPath) {
         int lastFlash = folderPath.lastIndexOf("/", folderPath.length() - 2);
         if (lastFlash > 0) {
             return folderPath.substring(0, lastFlash + 1);
@@ -80,7 +80,7 @@ public class MinioStorageUtils {
      *
      * @param folderPath путь к папке (используется только для папок, для файлов не подойдет)
      */
-    public void checkFolderPath(String folderPath) {
+    public static void checkFolderPath(String folderPath) {
         if (!folderPath.matches("^(?!.*//)(?!.*\\.{1,2})([\\p{L}\\d _-]+/)*$")) {
             throw new InvalidFolderPathException("Недопустимый путь к папке: " + folderPath);
         }
@@ -91,13 +91,13 @@ public class MinioStorageUtils {
      *
      * @param path путь к файлу (используется только для файлов, для папок не подойдет)
      */
-    public void validatePathToFile(String path) {
+    public static void validatePathToFile(String path) {
         if (!path.matches("^(?!.*//)(?!.*(?:^|/)\\.)(?!.*(?:^|/)\\.\\.)([\\p{L}\\p{N} _\\-]+/)*[\\p{L}\\p{N} _\\-]+\\.[\\p{L}\\p{N}]+$")) {
             throw new InvalidFolderPathException("Недопустимый путь: " + path);
         }
     }
 
-    public String getStandardPath(String path) {
+    public static String getStandardPath(String path) {
         if (path == null || path.isBlank()) {
             path = "";
         }
@@ -106,40 +106,30 @@ public class MinioStorageUtils {
     }
 
     /**
-     * Получение userID текущего пользователя.
-     *
-     * @return UserID из контекста безопасности
-     */
-    private Long getCurrentUserId() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-
-        if (principal instanceof CustomUserDetails userDetails) {
-            return userDetails.getId();
-        }
-        throw new CantGetUserContextIdException("Аутентифицированный пользователь не найден или имеет неверный тип");
-    }
-
-    /**
      * Получение корневой папки по userId из контекста.
      *
      * @return ID текущего пользователя
      */
-    public String getRootFolder() {
-        Long userId = getCurrentUserId();
+    public static String getRootFolder(HttpServletRequest request, JwtUtil jwtUtil) {
+        String token = jwtUtil.getTokenFromHeader(request)
+                .orElseThrow(() -> new JwtException("JWT Token не был найден"));
+
+        Long userId = jwtUtil.extractUserId(token);
+
         return "user-" + userId + "-files/";
     }
 
     /**
      * Получение полного пути до ресурса пользователя (должен вызываться первым делом, чтобы получать root папку пользователя)
      */
-    public String getFullUserPath(String path) {
-        String newPath = getStandardFullRootFolder(path);
+    public static String getFullUserPath(String path, HttpServletRequest request, JwtUtil jwtUtil) {
+        String newPath = getStandardFullRootFolder(path, request, jwtUtil);
         return isFolderPath(newPath) && !newPath.endsWith("/") ? newPath + "/" : newPath;
     }
 
-    private String getStandardFullRootFolder(String path) {
+    private static String getStandardFullRootFolder(String path, HttpServletRequest request, JwtUtil jwtUtil) {
         String newPath = getStandardPath(path);
-        return getRootFolder() + newPath;
+        return getRootFolder(request, jwtUtil) + newPath;
     }
 
     /**
@@ -150,7 +140,7 @@ public class MinioStorageUtils {
      * @param newPath Полный путь до нового места ресурса
      * @return Вердикт. Ведут ли два пути к одному типу ресурса
      */
-    public boolean isSameType(String oldPath, String newPath) {
+    public static boolean isSameType(String oldPath, String newPath) {
         return isFolderPath(oldPath) == isFolderPath(newPath);
     }
 
@@ -160,7 +150,7 @@ public class MinioStorageUtils {
      * @param path путь для проверки
      * @return Вердикт. Ведет ли путь к корневой директории или нет
      */
-    public boolean isRootFolder(String path) {
+    public static boolean isRootFolder(String path) {
         return path == null || path.isBlank() || path.trim().equals("/");
     }
 
@@ -169,7 +159,7 @@ public class MinioStorageUtils {
      *
      * @param path путь к ресурсу
      */
-    public void validateResourcePath(String path) {
+    public static void validateResourcePath(String path) {
         if (isFolderPath(path)) {
             checkFolderPath(path);
         } else {
