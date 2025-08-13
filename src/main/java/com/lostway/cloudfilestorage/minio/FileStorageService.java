@@ -3,8 +3,10 @@ package com.lostway.cloudfilestorage.minio;
 import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
+import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
 import com.lostway.jwtsecuritylib.JwtUtil;
+import io.jsonwebtoken.JwtException;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
 import io.minio.messages.Item;
@@ -18,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
@@ -68,14 +71,13 @@ public class FileStorageService {
      * Получение информации о запрашиваемом ресурсе. Сначала определяется: папка это или файл?
      * В зависимости от этого выбирается подход определения итогового пути и принцип поиск файла
      *
-     * @param path путь к файлу/папке (может быть без / в конце, в таком случае он добавится автоматически)
      * @return Информация о ресурсе. Если это файл или папка возвращается два разных класса ответа:
      * @see StorageAnswerDTO
      * @see StorageFolderAnswerDTO
      */
     public StorageResourceDTO getInformationAboutResource(String path, HttpServletRequest request) {
         try {
-            path = Objects.equals(path, getFullUserPath(path, request, jwtUtil)) ? path : getFullUserPath(path, request, jwtUtil);
+            path = getFullUserPath(path, request, jwtUtil);
             validateResourcePath(path);
             String folderPath = checkAndGetParentFolders(path);
 
@@ -96,63 +98,63 @@ public class FileStorageService {
     }
 
     /**
-     * Создает пустую папку. Важно! Не создает попутные папки до пути.
-     * Т.е. test/test2/ если папки test не будет -> будет ошибка.
-     * Также не поддерживаются дубликаты
-     *
-     * @param folderPath путь до папки
-     * @return DTO с информацией о созданной папке
-     * @throws ParentFolderNotFoundException  путь до родительской папки не был найден
-     * @throws ResourceInStorageAlreadyExists папка уже существует (дубликат)
-     * @throws InvalidFolderPathException     невалидный путь до папки
-     */
-
-    public StorageFolderAnswerDTO createEmptyFolder(String folderPath, HttpServletRequest request) {
-        try {
-            String normalPath = getFullUserPath(folderPath, request, jwtUtil);
-            validatePathAndCheckIsResourceAlreadyExists(normalPath);
-            String parentFolders = checkAndGetParentFolders(normalPath);
-            String pathName = getNameFromPath(normalPath);
-
-            makeEmptyFolder(normalPath);
-            return StorageFolderAnswerDTO.getDefault(parentFolders, pathName);
-
-        } catch (FileStorageException | ResourceInStorageAlreadyExists | ParentFolderNotFoundException |
-                 InvalidFolderPathException | CantGetUserContextIdException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new FileStorageException("Неизвестная ошибка при создании папки", e);
-        }
-    }
-
-    /**
      * Загрузка файла на сервер.
      *
-     * @param path путь до файла (создаст автоматически, если еще не созданы).
      * @param file файл, дубликат определяется по имени (если загружаем 12.png, а он уже есть в этой папке --> ошибка)
      * @return Информация о созданном файле
      * @throws ResourceInStorageAlreadyExists > файл уже существует в этой папке
      */
-    public StorageAnswerDTO uploadFile(String path, MultipartFile file, HttpServletRequest request) {
+    @Transactional
+    public UploadFileResponseDTO uploadFile(MultipartFile file, HttpServletRequest request) {
         try {
-            log.debug("Загрузка файла: {}, File: {}", path, file);
+            String token = jwtUtil.getTokenFromHeader(request)
+                    .orElseThrow(() -> new JwtException("Invalid token"));
+
+            String email = jwtUtil.extractEmail(token);
+
+            log.debug("Загрузка файла: {}, File: {}", file);
             String filename = getNameFromPath(getOriginalFileName(file));
-            String normalizedPath = getFullUserPath(path, request, jwtUtil);
+            String normalizedPath = getStandardFullRootFolder(null, request, jwtUtil);
             String objectName = normalizedPath + filename;
             log.debug("objectName: {}", objectName);
             log.debug("normalizedPath: {}", normalizedPath);
 
-            validatePathAndCheckIsResourceAlreadyExists(objectName);
-            makeEmptyFoldersOnPathIfNeeded(normalizedPath);
+            validatePathAndCheckIsFileAlreadyExists(objectName, filename);
             uploadFileInFolder(file, objectName);
 
-            return StorageAnswerDTO.getDefault(normalizedPath, filename, file.getSize());
+            //todo отправить информацию о файле в БД
+            //StorageAnswerDTO.getDefault(normalizedPath, filename, file.getSize());
+            //todo отправить в кафку в ресурс валидации
+
+            return new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email);
 
         } catch (ResourceInStorageAlreadyExists | FileStorageNotFoundException | CantGetUserContextIdException |
-                 InvalidFolderPathException e) {
+                 InvalidFolderPathException | BadFormatException e) {
             throw e;
         } catch (Exception e) {
             throw new FileStorageException("Не удалось загрузить файл", e);
+        }
+    }
+
+    private void validatePathAndCheckIsFileAlreadyExists(String path, String filename) {
+        log.debug("Проверка корректности пути validatePathAndCheckIsFileAlreadyExists: {}", path);
+        validatePathToFile(path);
+        validateFileFormat(filename);
+        log.debug("Проверка существования файла:, {}", path);
+
+        if (isFileExists(path)) {
+            log.debug("Ресурс по такому пути уже существует!:, {}", path);
+            throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
+        }
+
+        log.info("Ресурс '{}' не существует по этому пути. Можно создавать", path);
+    }
+
+    private void validateFileFormat(String filename) {
+        String format = filename.split("\\.")[1];
+        log.debug("Формат файла: {}", format);
+        if (!format.equals("pdf") && !format.equals("docs")) {
+            throw new BadFormatException("Неверный формат файла");
         }
     }
 
@@ -229,33 +231,6 @@ public class FileStorageService {
         }
 
         return getAllResourcesInFolder(fullPath);
-    }
-
-    /**
-     * Метод перемещения ресурса в другую папку или же переименования ресурса (если корневой путь такой же).
-     *
-     * @param oldPath старый путь. Пример: test/test2
-     * @param newPath новый путь. Если такой же --> переименование ресурса. Примеры: test/new test/test2, test/test3 (для переименования)
-     * @return Новый вид ресурса
-     */
-    public StorageResourceDTO replaceAction(HttpServletRequest request, String oldPath, String newPath) {
-
-        String oldFullPath = oldPath.startsWith(getRootFolder(request, jwtUtil)) ? oldPath : getFullUserPath(oldPath, request, jwtUtil);
-        String newFullPath = newPath.startsWith(getRootFolder(request, jwtUtil)) ? newPath : getFullUserPath(newPath, request, jwtUtil);
-
-        preparationBeforeMoving(oldFullPath, newFullPath);
-
-        log.debug("Перемещение ресурсов. Старое имя: {}, Новое имя: {}",
-                oldFullPath, newFullPath);
-
-        if (isFolderPath(oldFullPath)) {
-            moveFolder(oldFullPath, newFullPath);
-        } else {
-            moveFile(oldFullPath, newFullPath);
-            makeEmptyFolder(getParentFolders(oldFullPath));
-        }
-
-        return getInfoAboutResourceWithoutValidation(newFullPath);
     }
 
     /**
@@ -515,7 +490,7 @@ public class FileStorageService {
         validateResourcePath(path);
         log.debug("Проверка существования ресурса:, {}", path);
 
-        if (doesResourceExists(path)) {
+        if (isFileExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
         }

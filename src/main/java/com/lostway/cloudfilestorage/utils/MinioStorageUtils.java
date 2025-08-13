@@ -127,7 +127,7 @@ public class MinioStorageUtils {
         return isFolderPath(newPath) && !newPath.endsWith("/") ? newPath + "/" : newPath;
     }
 
-    private static String getStandardFullRootFolder(String path, HttpServletRequest request, JwtUtil jwtUtil) {
+    public static String getStandardFullRootFolder(String path, HttpServletRequest request, JwtUtil jwtUtil) {
         String newPath = getStandardPath(path);
         return getRootFolder(request, jwtUtil) + newPath;
     }

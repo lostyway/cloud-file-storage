@@ -44,7 +44,8 @@ minio:
   url: http://minio:9000
   access-key: minioadmin
   secret-key: minioadmin
-  bucket.name: user-files
+  bucket:
+    name: user-files
 
 server:
   port: 8088

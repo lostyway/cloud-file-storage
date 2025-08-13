@@ -1,7 +1,5 @@
 package com.lostway.cloudfilestorage.controller;
 
-import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
-import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
@@ -29,8 +27,6 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 import java.util.List;
 
-import static org.springframework.http.HttpStatus.CREATED;
-
 @SecurityScheme(
         name = "sessionAuth",
         type = SecuritySchemeType.APIKEY,
@@ -43,7 +39,6 @@ import static org.springframework.http.HttpStatus.CREATED;
 @RequiredArgsConstructor
 public class FileController {
     private final FileStorageService fileStorageService;
-
     private final JwtUtil jwtUtil;
 
     @PostMapping("/report")
@@ -53,12 +48,9 @@ public class FileController {
     ) {
         String token = jwtUtil.getTokenFromHeader(request)
                 .orElseThrow(() -> new JwtException("Invalid token"));
-
-//        validateFile(file);
-//
-//        restTemplate.exchange()
-
         String email = jwtUtil.extractEmail(token);
+
+        fileStorageService.uploadFile(file, request);
 
         //todo валидация и сохранение в minio
         return ResponseEntity.ok(new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email));
@@ -84,30 +76,6 @@ public class FileController {
     public ResponseEntity<StorageResourceDTO> getInformationAboutResource(@RequestParam(name = "path") String path, HttpServletRequest request) {
         fileStorageService.createUserRootFolder(request);
         return ResponseEntity.ok(fileStorageService.getInformationAboutResource(path, request));
-    }
-
-    @Operation(
-            summary = "Создание пустой директории.",
-            description = "Пустая папка создаться только если есть родительская папка. " +
-                    "При условии test будет создана папка rootFolder/test, но при создании папки test/test2 если папки " +
-                    "test не существует --> будет ошибка со статусом 404"
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Директория создана",
-                    content = @Content(schema = @Schema(implementation = StorageFolderAnswerDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Невалидный или отсутствующий путь.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            )
-    })
-    @PostMapping("/directory")
-    public ResponseEntity<StorageFolderAnswerDTO> createEmptyDirectory(@RequestParam(name = "path") String path, HttpServletRequest request) {
-        fileStorageService.createUserRootFolder(request);
-        return ResponseEntity.status(CREATED).body(fileStorageService.createEmptyFolder(path, request));
     }
 
     @Operation(
@@ -150,30 +118,6 @@ public class FileController {
     }
 
     @Operation(
-            summary = "Загрузка ресурса на сервис",
-            description = "Загружает указанные ресурсы по пути. Если папок не существует -> метод создаст их сам."
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Успешная загрузка ресурсов на облачный сервис.",
-                    content = @Content(schema = @Schema(implementation = StorageAnswerDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Невалидный или отсутствующий путь.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            )
-    })
-    @PostMapping(value = "/resource", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<StorageAnswerDTO> uploadResource(@RequestParam(value = "path", required = false) String path,
-                                                           @RequestParam("object") MultipartFile file,
-                                                           HttpServletRequest request) {
-        fileStorageService.createUserRootFolder(request);
-        return ResponseEntity.status(CREATED).body(fileStorageService.uploadFile(path, file, request));
-    }
-
-    @Operation(
             summary = "Скачивание ресурсов с сервиса.",
             description = "Скачивание файлов с сервиса. Загрузка может быть долгой, если файлы тяжелые." +
                     " Передается через буффер."
@@ -196,34 +140,6 @@ public class FileController {
                                                                   HttpServletRequest request) {
         fileStorageService.createUserRootFolder(request);
         return fileStorageService.downloadResource(path, response, request);
-    }
-
-    @Operation(
-            summary = "Перемещение/переименование ресурсов",
-            description = "Перемещает папку и все, что внутри в конечный путь или переименовывает (делает тоже самое)." +
-                    " Или же перемещает/переименовывает файл, не меняя папку внутри"
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Успешное перемещение файла на новый путь",
-                    content = @Content(schema = @Schema(implementation = StorageResourceDTO.class))
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Невалидный или отсутствующий путь.",
-                    content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
-            )
-    })
-    @GetMapping("/resource/move")
-    public ResponseEntity<StorageResourceDTO> replaceResource(
-            @Parameter(description = "Пример пути откуда берем или где переименовываем", example = "test/test2")
-            @RequestParam("from") String oldPath,
-            @Parameter(description = "Пример пути куда переносим или, если тот же путь --> переименовываем", example = "test/test2/test3")
-            @RequestParam("to") String newPath,
-            HttpServletRequest request) {
-        fileStorageService.createUserRootFolder(request);
-        return ResponseEntity.ok(fileStorageService.replaceAction(request, oldPath, newPath));
     }
 
     @Operation(

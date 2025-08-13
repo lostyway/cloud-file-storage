@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponseDTO(e.getMessage()));
     }
 
+    @ExceptionHandler(BadFormatException.class)
+    public ResponseEntity<ErrorResponseDTO> handleBadFormatException(BadFormatException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
     @ExceptionHandler(JwtException.class)
     public ResponseEntity<ErrorResponseDTO> handleJwtException(JwtException e) {
         throwLogError(e);
