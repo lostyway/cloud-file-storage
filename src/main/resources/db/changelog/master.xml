@@ -10,22 +10,4 @@
         http://www.liquibase.org/xml/ns/pro
         http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd">
 
-    <changeSet id="1" author="lostway">
-        <preConditions onFail="MARK_RAN">
-            <not>
-                <tableExists tableName="users"/>
-            </not>
-        </preConditions>
-        <comment>Создание таблицы users</comment>
-        <sql>
-            create table users
-            (
-                id       bigserial primary key,
-                username text not null unique,
-                password text not null,
-                role text
-            );
-        </sql>
-        <rollback>drop table if exists users cascade</rollback>
-    </changeSet>
 </databaseChangeLog>

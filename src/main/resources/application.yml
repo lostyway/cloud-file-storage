@@ -23,7 +23,7 @@ spring:
       request-timeout: 300000
 
 api:
-  url: /api
+  url: /api/v2/upload
 
 eureka:
   client:

@@ -3,8 +3,11 @@ package com.lostway.cloudfilestorage.controller;
 import com.lostway.cloudfilestorage.controller.dto.StorageAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
+import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
+import com.lostway.jwtsecuritylib.JwtUtil;
+import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
@@ -40,6 +43,26 @@ import static org.springframework.http.HttpStatus.CREATED;
 @RequiredArgsConstructor
 public class FileController {
     private final FileStorageService fileStorageService;
+
+    private final JwtUtil jwtUtil;
+
+    @PostMapping("/report")
+    public ResponseEntity<UploadFileResponseDTO> getMe(
+            @RequestParam(value = "file") MultipartFile file,
+            HttpServletRequest request
+    ) {
+        String token = jwtUtil.getTokenFromHeader(request)
+                .orElseThrow(() -> new JwtException("Invalid token"));
+
+//        validateFile(file);
+//
+//        restTemplate.exchange()
+
+        String email = jwtUtil.extractEmail(token);
+
+        //todo валидация и сохранение в minio
+        return ResponseEntity.ok(new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email));
+    }
 
     @Operation(
             summary = "Получение информации о ресурсе.",
