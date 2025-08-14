@@ -37,12 +37,9 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import java.util.stream.StreamSupport;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -75,36 +72,6 @@ public class FileStorageService {
             log.info("Инициализация бакета прошла успешно");
         } catch (Exception e) {
             log.error("Ошибка инициализации Minio бакета '{}'", bucketName, e);
-            throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
-        }
-    }
-
-    /**
-     * Получение информации о запрашиваемом ресурсе. Сначала определяется: папка это или файл?
-     * В зависимости от этого выбирается подход определения итогового пути и принцип поиск файла
-     *
-     * @return Информация о ресурсе. Если это файл или папка возвращается два разных класса ответа:
-     * @see StorageAnswerDTO
-     * @see StorageFolderAnswerDTO
-     */
-    public StorageResourceDTO getInformationAboutResource(String path, HttpServletRequest request) {
-        try {
-            path = getFullUserPath(path, request, jwtUtil);
-            validateResourcePath(path);
-            String folderPath = checkAndGetParentFolders(path);
-
-            return isFolderPath(path)
-                    ? tryReturnAsFolder(path)
-                    : StorageAnswerDTO.getDefault(folderPath, getNameFromPath(path), getStatAboutFile(path).size());
-
-        } catch (FileStorageNotFoundException |
-                 InvalidFolderPathException |
-                 FileStorageException |
-                 ParentFolderNotFoundException e) {
-            log.info("Ошибка: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.info("Ошибка: {}", e.getMessage());
             throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
         }
     }
@@ -205,153 +172,6 @@ public class FileStorageService {
     }
 
     /**
-     * Скачивание файлов с хранилища. Можно сохранять только свои файлы (контролируется rootFolder)
-     *
-     * @param path путь до файла
-     * @return ресурс для скачиваения
-     */
-    public ResponseEntity<StreamingResponseBody> downloadResource(String path, HttpServletResponse response, HttpServletRequest request) {
-        try {
-            String userPath = getFullUserPath(path, request, jwtUtil);
-
-            if (!doesResourceExists(userPath)) {
-                log.error("Ресурс для скачивания не был найден: {}", userPath);
-                throw new FileStorageNotFoundException("Ресурс для скачивания не был найден");
-            }
-
-            return isFolderPath(userPath)
-                    ? downloadFolder(userPath, response)
-                    : downloadFile(userPath, response);
-
-        } catch (InvalidFolderPathException | FileStorageNotFoundException | CantGetUserContextIdException e) {
-            response.reset();
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            throw e;
-        } catch (Exception e) {
-            response.reset();
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            throw new ResourceDownloadException(e.getMessage());
-        }
-    }
-
-    /**
-     * Удаление файла/папки (если папки, то и всех файлов + папок, которые в нее вложены)
-     *
-     * @param path путь до файла/папки
-     */
-    public void delete(String path, HttpServletRequest request) {
-        try {
-            String pathWithUser = getFullUserPath(path, request, jwtUtil);
-
-            if (!doesResourceExists(pathWithUser)) {
-                throw new FileStorageNotFoundException("Папка/Файл не существует");
-            }
-
-            deleteObject(pathWithUser);
-
-        } catch (FileStorageNotFoundException | CantGetUserContextIdException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new FileStorageException("Ошибка при удалении папки", e);
-
-        }
-    }
-
-    /**
-     * Получение информации о всех файлах + папках по указанному пути.
-     *
-     * @param path путь до папки, по которой нужно вернуть информацию.
-     * @return Коллекция DTO с файлами и папками, которые располагаются по пути.
-     */
-    public List<StorageResourceDTO> getFilesFromDirectory(String path, HttpServletRequest request) {
-
-        String fullPath = getFullUserPath(path, request, jwtUtil);
-
-        if (!isFolderPath(fullPath)) {
-            throw new InvalidFolderPathException("Необходимо ввести путь к папке, а не файлу");
-        }
-
-        if (!checkIsFolderExists(fullPath)) {
-            log.warn("Папка по пути: {} не существует", fullPath);
-            throw new FolderNotFoundException("Папка по указанному пути не существует");
-        }
-
-        return getAllResourcesInFolder(fullPath);
-    }
-
-    /**
-     * Получение информации о всех ресурсах в папке (не рекурсивно)
-     *
-     * @param fullPath путь до папки
-     * @return Все файлы в папке
-     */
-    private List<StorageResourceDTO> getAllResourcesInFolder(String fullPath) {
-        try {
-            var resources = minioClient.listObjects(
-                    ListObjectsArgs.builder()
-                            .bucket(bucketName)
-                            .prefix(fullPath)
-                            .delimiter("/")
-                            .build()
-            );
-
-            List<StorageResourceDTO> result = new ArrayList<>();
-            for (Result<Item> resource : resources) {
-
-                String fileName = resource.get().objectName();
-
-                if (fileName.isBlank() || fileName.equals(fullPath)) {
-                    continue;
-                }
-
-                if (resource.get().size() > 0) {
-                    result.add(StorageAnswerDTO.getDefault(fullPath, getNameFromPath(fileName), resource.get().size()));
-                } else {
-                    result.add(StorageFolderAnswerDTO.getDefault(fullPath, getNameFromPath(fileName)));
-                }
-            }
-
-            return result;
-        } catch (Exception e) {
-            throw new FileStorageException("Ошибка при попытке получить информацию о ресурсах в папке", e);
-        }
-    }
-
-    /**
-     * Рекурсивно ищет файлы в системе начиная с root папки пользователя.
-     *
-     * @param query ресурс, который ищем
-     */
-    public List<StorageResourceDTO> searchResource(HttpServletRequest request, String query) {
-        if (isRootFolder(query)) {
-            throw new IllegalArgumentException("Параметр запроса не может быть пустым или корневой папкой");
-        }
-
-        if (query.contains("..") || query.contains("/") || query.contains("\\")) {
-            throw new InvalidFolderPathException("Поисковый запрос содержит недопустимые элементы: " + query);
-        }
-
-        if (!query.matches("^[\\p{L}\\p{N} _\\-.]{1,100}$")) {
-            throw new InvalidFolderPathException("Недопустимый путь: " + query);
-        }
-
-        var results = minioClient.listObjects(
-                ListObjectsArgs.builder()
-                        .bucket(bucketName)
-                        .prefix(getRootFolder(request, jwtUtil))
-                        .recursive(true)
-                        .build());
-
-
-        return StreamSupport.stream(results.spliterator(), false)
-                .map(this::getItemSafe)
-                .filter(Objects::nonNull)
-                .filter(item -> getNameFromPath(item.objectName().toLowerCase()).equals(query.toLowerCase()))
-                .map(this::itemToDto)
-                .toList();
-    }
-
-    /**
      * Создание пустой папки
      *
      * @param folderPath путь до папки которую нужно создать
@@ -436,29 +256,6 @@ public class FileStorageService {
     }
 
     /**
-     * Метод поиска папки и возврата DTO папки.
-     *
-     * @param path путь до папки
-     * @return DTO для папки
-     */
-    private StorageFolderAnswerDTO tryReturnAsFolder(String path) {
-        try {
-            if (!checkIsFolderExists(path)) {
-                throw new FileStorageNotFoundException("Ресурс не найден: " + path);
-            }
-
-            return StorageFolderAnswerDTO.getDefault(getParentFolders(path), getNameFromPath(path));
-
-        } catch (FileStorageNotFoundException | InvalidFolderPathException | ParentFolderNotFoundException |
-                 CantGetUserContextIdException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Ошибка при попытке определить наличие папки '{}'", path, e);
-            throw new FileStorageException("Ошибка при проверке папки", e);
-        }
-    }
-
-    /**
      * Получение информации о ресурсе
      *
      * @param path путь до ресурса
@@ -527,24 +324,6 @@ public class FileStorageService {
     }
 
     /**
-     * Проверка пути до файла и существует ли он
-     *
-     * @param path путь до ресурса
-     */
-    private void validatePathAndCheckIsResourceAlreadyExists(String path) {
-        log.debug("Проверка корректности пути validatePathAndCheckIsResourceAlreadyExists: isFile {}", path);
-        validateResourcePath(path);
-        log.debug("Проверка существования ресурса:, {}", path);
-
-        if (isFileExists(path)) {
-            log.debug("Ресурс по такому пути уже существует!:, {}", path);
-            throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
-        }
-
-        log.info("Ресурс '{}' не существует по этому пути. Можно создавать", path);
-    }
-
-    /**
      * Загрузка файла на сервер потоком
      *
      * @param file       файл
@@ -563,59 +342,6 @@ public class FileStorageService {
             );
         }
         log.info("Файл успешно загружен в '{}'", objectName);
-    }
-
-    /**
-     * Создание пустых папок по пути к ресурсу
-     *
-     * @param path путь до ресурса
-     */
-    private void makeEmptyFoldersOnPathIfNeeded(String path) {
-        if (path.contains("/")) {
-            String[] parts = path.split("/");
-            StringBuilder currentPath = new StringBuilder();
-
-            for (String part : parts) {
-                if (part.isBlank()) {
-                    continue;
-                }
-                currentPath.append(part).append("/");
-                makeEmptyFolder(currentPath.toString());
-            }
-        }
-    }
-
-    /**
-     * Удаление объекта
-     *
-     * @param pathWithUser файл или папка. На основе решения что это будет выбран метод удаления
-     */
-    private void deleteObject(String pathWithUser) {
-        if (isFolderPath(pathWithUser)) {
-            deleteFolder(pathWithUser);
-        } else {
-            deleteFile(pathWithUser);
-        }
-    }
-
-    /**
-     * Удаление папки и всего содержимого
-     *
-     * @param pathWithUser путь до папки
-     */
-    private void deleteFolder(String pathWithUser) {
-
-        try {
-            var results = getResourcesFromFolder(pathWithUser);
-
-            for (var result : results) {
-                var item = result.get();
-                deleteFile(item.objectName());
-                log.info("Удалена папка: {}", item.objectName());
-            }
-        } catch (Exception e) {
-            throw new FileStorageException("Ошибка при удалении папок", e);
-        }
     }
 
     /**
@@ -803,34 +529,6 @@ public class FileStorageService {
                         .prefix(userPath)
                         .recursive(true)
                         .build());
-    }
-
-    /**
-     * Возвращаем DTO без повторных проверок валидации
-     *
-     * @param resourcePath итоговый путь к ресурсу
-     * @return DTO файла/папки
-     */
-    private StorageResourceDTO getInfoAboutResourceWithoutValidation(String resourcePath) {
-        try {
-            if (isFolderPath(resourcePath)) {
-                return tryReturnAsFolder(resourcePath);
-            } else {
-                String path = checkAndGetParentFolders(resourcePath);
-                String fileName = getNameFromPath(resourcePath);
-                long fileSize = getStatAboutFile(resourcePath).size();
-                return StorageAnswerDTO.getDefault(path, fileName, fileSize);
-            }
-        } catch (FileStorageNotFoundException |
-                 InvalidFolderPathException |
-                 FileStorageException |
-                 ParentFolderNotFoundException e) {
-            log.info("Ошибка: {}", e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.info("Ошибка: {}", e.getMessage());
-            throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
-        }
     }
 
     /**

@@ -2,10 +2,7 @@ package com.lostway.cloudfilestorage.repository.entity;
 
 import com.lostway.jwtsecuritylib.kafka.enums.ContentType;
 import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -42,6 +39,7 @@ public class UpdateFile {
     private String uploaderEmail;
 
     @Column(name = "status")
+    @Enumerated(EnumType.STRING)
     private FileStatus status;
 
     @Column(name = "notes")

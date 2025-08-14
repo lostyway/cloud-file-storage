@@ -2,8 +2,13 @@ package com.lostway.cloudfilestorage.scheduler;
 
 import com.lostway.cloudfilestorage.kafka.DocumentEventProducer;
 import com.lostway.cloudfilestorage.mapper.KafkaMapper;
+import com.lostway.cloudfilestorage.minio.FileStorageService;
 import com.lostway.cloudfilestorage.repository.OutboxKafkaRepository;
+import com.lostway.cloudfilestorage.repository.UpdateFileRepository;
 import com.lostway.cloudfilestorage.repository.entity.OutboxKafka;
+import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
+import com.lostway.cloudfilestorage.service.UpdateStatusService;
+import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +18,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -22,6 +29,9 @@ public class OutboxSenderScheduler {
     private final DocumentEventProducer documentEventProducer;
     private final OutboxKafkaRepository outboxKafkaRepository;
     private final KafkaMapper mapper;
+    private final UpdateStatusService updateStatusService;
+    private final FileStorageService fileStorageService;
+    private final UpdateFileRepository updateFileRepository;
 
     @Value("${scheduler-batch-size}")
     private int BATCH_SIZE;
@@ -58,5 +68,30 @@ public class OutboxSenderScheduler {
         log.info("Отправленные events будут удалены по сроку годности: {}", outboxEvents.toArray());
         outboxKafkaRepository.deleteAll(outboxEvents);
         log.info("Events удалены");
+    }
+
+
+    /**
+     * Очистка s3 от неактуальных данных, очищать лучше раз в неделю, для тестов раз в минуту
+     */
+    //todo помечать в сервисе report после выдачи ответа что файл можно удалить спустя неделю (пометить статусом CONFIRM/FAILED).
+    @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
+    @Transactional
+    @Async
+    public void clearS3() {
+        var list = updateFileRepository.findAllByStatusIn(List.of(FileStatus.COMPLETED, FileStatus.FAILED));
+
+        log.info("Будут удалены даные из Бд и minio: {}", Arrays.toString(list.toArray()));
+        if (list.isEmpty()) {
+            return;
+        }
+
+        list.stream()
+                .filter(Objects::nonNull)
+                .map(UpdateFile::getFullPath)
+                .filter(Objects::nonNull)
+                .forEach(fileStorageService::deleteFile);
+
+        updateFileRepository.deleteAll(list);
     }
 }
