@@ -21,6 +21,7 @@
             (
                 file_id        UUID PRIMARY KEY,
                 file_name      VARCHAR(255) NOT NULL,
+                full_path      VARCHAR(255) NOT NULL,
                 content_type   VARCHAR(100),
                 file_size      BIGINT,
                 uploader_email VARCHAR(255),

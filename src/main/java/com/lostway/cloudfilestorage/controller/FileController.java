@@ -4,7 +4,8 @@ import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
-import com.lostway.jwtsecuritylib.JwtUtil;
+import com.lostway.cloudfilestorage.service.UpdateStatusService;
+import com.lostway.jwtsecuritylib.kafka.FileStatusUpdatedEvent;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
@@ -38,16 +39,23 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FileController {
     private final FileStorageService fileStorageService;
-    private final JwtUtil jwtUtil;
+    private final UpdateStatusService updateStatusService;
 
     @PostMapping("/report")
     public ResponseEntity<UploadFileResponseDTO> getMe(
             @RequestParam(value = "file") MultipartFile file,
             HttpServletRequest request
     ) {
+        fileStorageService.createUserRootFolder(request);
         var response = fileStorageService.uploadFile(file, request);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<FileStatusUpdatedEvent> getActualStatus(@RequestParam("fileId") String fileId, HttpServletRequest request) {
+        return ResponseEntity.ok(updateStatusService.getActualStatus(fileId, request));
+        //todo поменять на статус
     }
 
     @Operation(

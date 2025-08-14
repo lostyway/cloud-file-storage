@@ -29,6 +29,9 @@ public class UpdateFile {
     @Column(name = "file_name")
     private String fileName;
 
+    @Column(name = "full_path")
+    private String fullPath;
+
     @Column(name = "content_type")
     private ContentType contentType;
 

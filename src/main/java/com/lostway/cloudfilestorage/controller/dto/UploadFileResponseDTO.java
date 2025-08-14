@@ -1,4 +1,4 @@
 package com.lostway.cloudfilestorage.controller.dto;
 
-public record UploadFileResponseDTO(String message, String email) {
+public record UploadFileResponseDTO(String fileId, String message, String email) {
 }

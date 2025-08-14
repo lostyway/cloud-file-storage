@@ -1,7 +1,7 @@
 package com.lostway.cloudfilestorage.kafka;
 
-import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
 import com.lostway.cloudfilestorage.repository.UpdateFileRepository;
+import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
 import com.lostway.jwtsecuritylib.kafka.FileStatusUpdatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,11 +23,12 @@ public class FileStatusConsumer {
         if (maybeFile.isPresent()) {
             UpdateFile file = maybeFile.get();
             file.setStatus(event.status());
-            file.setNotes(event.notes());
+            file.setNotes(event.notes().isBlank() ? file.getNotes() : event.notes());
             file.setUpdatedAt(event.updatedAt());
             updateFileRepository.save(file);
         } else {
-            log.warn("Файл не был найден");
+            log.warn("Файл не был найден: file id: {}, event: {}", event.fileId(), event.status());
+            throw new RuntimeException("Файл не был найден");
         }
     }
 }

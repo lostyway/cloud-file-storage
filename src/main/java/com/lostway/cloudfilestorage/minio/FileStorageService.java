@@ -62,7 +62,6 @@ public class FileStorageService {
     @Value("${minio.bucket.name}")
     private String bucketName;
 
-
     /**
      * Инициализация бакета, если он еще не создан
      */
@@ -132,13 +131,14 @@ public class FileStorageService {
             log.debug("objectName: {}", objectName);
             log.debug("normalizedPath: {}", normalizedPath);
 
-            ContentType fileType = validatePathAndCheckIsFileAlreadyExists(objectName, fileName);
+            ContentType fileType = validatePathAndCheckIsFileAlreadyExists(objectName, fileName, email);
 
             uploadFileInFolder(file, objectName);
 
             UpdateFile updateFile = UpdateFile.builder()
                     .fileId(UUID.randomUUID())
                     .fileName(fileName)
+                    .fullPath(objectName)
                     .contentType(fileType)
                     .fileSize(file.getSize())
                     .uploaderEmail(email)
@@ -157,7 +157,7 @@ public class FileStorageService {
             var outbox = outboxKafkaRepository.save(outboxKafka);
             log.info("Outbox: {}", outbox);
 
-            return new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email);
+            return new UploadFileResponseDTO(updateFile.getFileId().toString(), "Ваш документ принят! Отчет будет направлен на почту", email);
         } catch (ResourceInStorageAlreadyExists | FileStorageNotFoundException | CantGetUserContextIdException |
                  InvalidFolderPathException | BadFormatException e) {
             throw e;
@@ -176,7 +176,7 @@ public class FileStorageService {
         }
     }
 
-    private ContentType validatePathAndCheckIsFileAlreadyExists(String path, String filename) {
+    private ContentType validatePathAndCheckIsFileAlreadyExists(String path, String filename, String email) {
         log.debug("Проверка корректности пути validatePathAndCheckIsFileAlreadyExists: {}", path);
         validatePathToFile(path);
         ContentType type = validateFileFormat(filename);
@@ -184,7 +184,10 @@ public class FileStorageService {
 
         if (isFileExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
-            throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует!");
+            UpdateFile file = updateFileRepository.findByFullPathAndUploaderEmail(path, email)
+                    .orElseThrow(() -> new FileStorageNotFoundException("Не удалось найти файл"));
+
+            throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует. File id: %s".formatted(file.getFileId()));
         }
 
         log.info("Ресурс '{}' не существует по этому пути. Можно создавать", path);

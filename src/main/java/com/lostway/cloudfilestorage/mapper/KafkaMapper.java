@@ -2,6 +2,7 @@ package com.lostway.cloudfilestorage.mapper;
 
 import com.lostway.cloudfilestorage.repository.entity.OutboxKafka;
 import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
+import com.lostway.jwtsecuritylib.kafka.FileStatusUpdatedEvent;
 import com.lostway.jwtsecuritylib.kafka.FileUploadedEvent;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -34,4 +35,6 @@ public interface KafkaMapper {
     FileUploadedEvent fromEntityToDto(OutboxKafka outboxKafka);
 
     List<FileUploadedEvent> fromEntitiesToEvents(List<OutboxKafka> eventsEntities);
+
+    FileStatusUpdatedEvent fromEntitiesToEventUpdate(UpdateFile updateFile);
 }
