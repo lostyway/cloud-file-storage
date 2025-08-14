@@ -1,5 +1,6 @@
 package com.lostway.cloudfilestorage.controller;
 
+import com.lostway.cloudfilestorage.controller.dto.ActualStatusResponseDTO;
 import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
@@ -53,7 +54,7 @@ public class FileController {
             )
     })
     @PostMapping("/report")
-    public ResponseEntity<UploadFileResponseDTO> getMe(
+    public ResponseEntity<UploadFileResponseDTO> reportDoc(
             @RequestParam(value = "file") MultipartFile file,
             HttpServletRequest request
     ) {
@@ -80,8 +81,9 @@ public class FileController {
             )
     })
     @GetMapping("/status")
-    public ResponseEntity<FileStatusUpdatedEvent> getActualStatus(@RequestParam("fileId") String fileId, HttpServletRequest request) {
+    public ResponseEntity<ActualStatusResponseDTO> getActualStatus(
+            @RequestParam("fileId") String fileId, HttpServletRequest request
+    ) {
         return ResponseEntity.ok(updateStatusService.getActualStatus(fileId, request));
-        //todo поменять на статус
     }
 }
