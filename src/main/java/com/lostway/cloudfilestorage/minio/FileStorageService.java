@@ -153,7 +153,7 @@ public class FileStorageService {
     private void validateFileFormat(String filename) {
         String format = filename.split("\\.")[1];
         log.debug("Формат файла: {}", format);
-        if (!format.equals("pdf") && !format.equals("docs")) {
+        if (!format.equals("pdf") && !format.equals("docx")) {
             throw new BadFormatException("Неверный формат файла");
         }
     }

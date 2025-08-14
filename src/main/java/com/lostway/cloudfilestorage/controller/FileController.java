@@ -5,7 +5,6 @@ import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
 import com.lostway.jwtsecuritylib.JwtUtil;
-import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
@@ -46,14 +45,10 @@ public class FileController {
             @RequestParam(value = "file") MultipartFile file,
             HttpServletRequest request
     ) {
-        String token = jwtUtil.getTokenFromHeader(request)
-                .orElseThrow(() -> new JwtException("Invalid token"));
-        String email = jwtUtil.extractEmail(token);
-
-        fileStorageService.uploadFile(file, request);
+        var response = fileStorageService.uploadFile(file, request);
 
         //todo валидация и сохранение в minio
-        return ResponseEntity.ok(new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email));
+        return ResponseEntity.ok(response);
     }
 
     @Operation(
