@@ -9,5 +9,26 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd
         http://www.liquibase.org/xml/ns/pro
         http://www.liquibase.org/xml/ns/pro/liquibase-pro-latest.xsd">
-
+<changeSet id="1" author="lostway">
+    <preConditions onFail="MARK_RAN">
+        <not>
+            <tableExists tableName="uploaded_files"/>
+        </not>
+    </preConditions>
+    <comment>Создание таблицы загруженного файла</comment>
+    <sql>
+        CREATE TABLE uploaded_files
+        (
+            file_id        UUID PRIMARY KEY,
+            file_name      VARCHAR(255) NOT NULL,
+            content_type   VARCHAR(100),
+            file_size      BIGINT,
+            uploader_email VARCHAR(255),
+            status         VARCHAR(50)  NOT NULL,
+            notes          TEXT,
+            created_at     TIMESTAMP    NOT NULL DEFAULT NOW(),
+            updated_at     TIMESTAMP    NOT NULL DEFAULT NOW()
+        );
+    </sql>
+</changeSet>
 </databaseChangeLog>

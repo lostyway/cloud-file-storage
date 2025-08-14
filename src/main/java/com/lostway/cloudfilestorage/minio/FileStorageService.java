@@ -5,7 +5,11 @@ import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
+import com.lostway.cloudfilestorage.repository.UpdateFile;
+import com.lostway.cloudfilestorage.repository.UpdateFileRepository;
 import com.lostway.jwtsecuritylib.JwtUtil;
+import com.lostway.jwtsecuritylib.kafka.enums.ContentType;
+import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;
 import io.jsonwebtoken.JwtException;
 import io.minio.*;
 import io.minio.errors.ErrorResponseException;
@@ -28,6 +32,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -45,6 +50,7 @@ public class FileStorageService {
 
     private final MinioClient minioClient;
     private final JwtUtil jwtUtil;
+    private final UpdateFileRepository updateFileRepository;
 
     @Value("${minio.bucket.name}")
     private String bucketName;
@@ -119,11 +125,20 @@ public class FileStorageService {
             log.debug("objectName: {}", objectName);
             log.debug("normalizedPath: {}", normalizedPath);
 
-            validatePathAndCheckIsFileAlreadyExists(objectName, filename);
+            ContentType fileType = validatePathAndCheckIsFileAlreadyExists(objectName, filename);
             uploadFileInFolder(file, objectName);
 
             //todo отправить информацию о файле в БД
-            //StorageAnswerDTO.getDefault(normalizedPath, filename, file.getSize());
+            UpdateFile updateFile = UpdateFile.builder()
+                    .fileName(filename)
+                    .contentType(fileType)
+                    .fileSize(file.getSize())
+                    .uploaderEmail(email)
+                    .status(FileStatus.UPLOADED)
+                    .createdAt(Instant.now())
+                    .build();
+
+            updateFileRepository.save(updateFile);
             //todo отправить в кафку в ресурс валидации
 
             return new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email);
@@ -136,10 +151,10 @@ public class FileStorageService {
         }
     }
 
-    private void validatePathAndCheckIsFileAlreadyExists(String path, String filename) {
+    private ContentType validatePathAndCheckIsFileAlreadyExists(String path, String filename) {
         log.debug("Проверка корректности пути validatePathAndCheckIsFileAlreadyExists: {}", path);
         validatePathToFile(path);
-        validateFileFormat(filename);
+        ContentType type = validateFileFormat(filename);
         log.debug("Проверка существования файла:, {}", path);
 
         if (isFileExists(path)) {
@@ -148,14 +163,17 @@ public class FileStorageService {
         }
 
         log.info("Ресурс '{}' не существует по этому пути. Можно создавать", path);
+        return type;
     }
 
-    private void validateFileFormat(String filename) {
+    private ContentType validateFileFormat(String filename) {
         String format = filename.split("\\.")[1];
         log.debug("Формат файла: {}", format);
-        if (!format.equals("pdf") && !format.equals("docx")) {
-            throw new BadFormatException("Неверный формат файла");
-        }
+        return switch (filename) {
+            case "pdf" -> ContentType.PDF;
+            case "docx" -> ContentType.DOCX;
+            default -> throw new BadFormatException("Неверный формат файла");
+        };
     }
 
     /**
