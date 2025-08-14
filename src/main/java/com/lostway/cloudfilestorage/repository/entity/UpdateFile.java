@@ -1,4 +1,4 @@
-package com.lostway.cloudfilestorage.repository;
+package com.lostway.cloudfilestorage.repository.entity;
 
 import com.lostway.jwtsecuritylib.kafka.enums.ContentType;
 import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;

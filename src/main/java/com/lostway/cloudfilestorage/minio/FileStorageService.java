@@ -5,9 +5,13 @@ import com.lostway.cloudfilestorage.controller.dto.StorageFolderAnswerDTO;
 import com.lostway.cloudfilestorage.controller.dto.StorageResourceDTO;
 import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.*;
-import com.lostway.cloudfilestorage.repository.UpdateFile;
+import com.lostway.cloudfilestorage.mapper.KafkaMapper;
+import com.lostway.cloudfilestorage.repository.OutboxKafkaRepository;
 import com.lostway.cloudfilestorage.repository.UpdateFileRepository;
+import com.lostway.cloudfilestorage.repository.entity.OutboxKafka;
+import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
 import com.lostway.jwtsecuritylib.JwtUtil;
+import com.lostway.jwtsecuritylib.kafka.FileUploadedEvent;
 import com.lostway.jwtsecuritylib.kafka.enums.ContentType;
 import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;
 import io.jsonwebtoken.JwtException;
@@ -36,6 +40,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
 import java.util.zip.ZipEntry;
@@ -51,6 +56,8 @@ public class FileStorageService {
     private final MinioClient minioClient;
     private final JwtUtil jwtUtil;
     private final UpdateFileRepository updateFileRepository;
+    private final KafkaMapper kafkaMapper;
+    private final OutboxKafkaRepository outboxKafkaRepository;
 
     @Value("${minio.bucket.name}")
     private String bucketName;
@@ -119,35 +126,53 @@ public class FileStorageService {
             String email = jwtUtil.extractEmail(token);
 
             log.debug("Загрузка файла: {}, File: {}", file);
-            String filename = getNameFromPath(getOriginalFileName(file));
+            String fileName = getNameFromPath(getOriginalFileName(file));
             String normalizedPath = getStandardFullRootFolder(null, request, jwtUtil);
-            String objectName = normalizedPath + filename;
+            String objectName = normalizedPath + fileName;
             log.debug("objectName: {}", objectName);
             log.debug("normalizedPath: {}", normalizedPath);
 
-            ContentType fileType = validatePathAndCheckIsFileAlreadyExists(objectName, filename);
+            ContentType fileType = validatePathAndCheckIsFileAlreadyExists(objectName, fileName);
+
             uploadFileInFolder(file, objectName);
 
-            //todo отправить информацию о файле в БД
             UpdateFile updateFile = UpdateFile.builder()
-                    .fileName(filename)
+                    .fileId(UUID.randomUUID())
+                    .fileName(fileName)
                     .contentType(fileType)
                     .fileSize(file.getSize())
                     .uploaderEmail(email)
                     .status(FileStatus.UPLOADED)
                     .createdAt(Instant.now())
+                    .updatedAt(Instant.now())
                     .build();
 
+            log.info("UpdateFile: {}", updateFile);
             updateFileRepository.save(updateFile);
-            //todo отправить в кафку в ресурс валидации
+
+            FileUploadedEvent fileUpdateEvent = kafkaMapper.fromEntityToFileUpdateEvent(updateFile);
+            log.info("FileUploadedEvent: {}", fileUpdateEvent);
+            OutboxKafka outboxKafka = kafkaMapper.fromDtoToEntity(fileUpdateEvent);
+
+            var outbox = outboxKafkaRepository.save(outboxKafka);
+            log.info("Outbox: {}", outbox);
 
             return new UploadFileResponseDTO("Ваш документ принят! Отчет будет направлен на почту", email);
-
         } catch (ResourceInStorageAlreadyExists | FileStorageNotFoundException | CantGetUserContextIdException |
                  InvalidFolderPathException | BadFormatException e) {
             throw e;
         } catch (Exception e) {
+            deleteFileIfExistAfterException(file, request);
             throw new FileStorageException("Не удалось загрузить файл", e);
+        }
+    }
+
+    private void deleteFileIfExistAfterException(MultipartFile file, HttpServletRequest request) {
+        String fileName = getNameFromPath(getOriginalFileName(file));
+        String normalizedPath = getStandardFullRootFolder(null, request, jwtUtil);
+        String objectName = normalizedPath + fileName;
+        if (isFileExists(objectName)) {
+            deleteFile(objectName);
         }
     }
 
@@ -169,7 +194,7 @@ public class FileStorageService {
     private ContentType validateFileFormat(String filename) {
         String format = filename.split("\\.")[1];
         log.debug("Формат файла: {}", format);
-        return switch (filename) {
+        return switch (format) {
             case "pdf" -> ContentType.PDF;
             case "docx" -> ContentType.DOCX;
             default -> throw new BadFormatException("Неверный формат файла");

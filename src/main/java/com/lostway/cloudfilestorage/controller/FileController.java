@@ -47,7 +47,6 @@ public class FileController {
     ) {
         var response = fileStorageService.uploadFile(file, request);
 
-        //todo валидация и сохранение в minio
         return ResponseEntity.ok(response);
     }
 

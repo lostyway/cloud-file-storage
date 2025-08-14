@@ -19,3 +19,7 @@ minio:
 server:
   port: 8088
 
+cleaner-outbox-base-schedule-cron: "0 * * * * *"
+
+bootstrapserver: localhost:29092
+
