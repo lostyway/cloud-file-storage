@@ -21,16 +21,16 @@ import java.util.Map;
 @Configuration
 public class KafkaConfig {
 
-    private final String bootstrapServer;
+    private final String bootstrapServers;
 
     public KafkaConfig(@Value("${bootstrapserver}") String bootstrapServer) {
-        this.bootstrapServer = bootstrapServer;
+        this.bootstrapServers = bootstrapServer;
     }
 
     @Bean
     public ProducerFactory<String, Object> producerConfig() {
         Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
@@ -48,7 +48,7 @@ public class KafkaConfig {
     @Bean
     public ConsumerFactory<String, FileStatusUpdatedEvent> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServer);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "upload-service-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
