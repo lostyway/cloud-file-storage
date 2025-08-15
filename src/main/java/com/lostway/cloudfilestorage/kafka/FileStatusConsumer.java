@@ -17,7 +17,7 @@ public class FileStatusConsumer {
 
     private final UpdateFileRepository updateFileRepository;
 
-    @KafkaListener(topics = "file-status-updated-topic", groupId = "upload-service-group")
+    @KafkaListener(topics = "file-status-updated-topic", groupId = "file-status-service-group")
     public void consume(FileStatusUpdatedEvent event) {
         Optional<UpdateFile> maybeFile = updateFileRepository.findById(event.fileId());
         if (maybeFile.isPresent()) {

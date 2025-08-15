@@ -34,9 +34,8 @@ public class OutboxSenderScheduler {
     @Value("${scheduler-batch-size}")
     private int BATCH_SIZE;
 
-    @Scheduled(fixedRate = 2000)
+    @Scheduled(fixedDelay = 2000)
     @Transactional
-    @Async
     public void sendDocumentEvents() {
         var outboxEvents = outboxKafkaRepository.getActualKafkaEventsToSend(Pageable.ofSize(BATCH_SIZE));
         var events = mapper.fromEntitiesToEvents(outboxEvents);
