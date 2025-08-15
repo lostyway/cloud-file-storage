@@ -16,8 +16,8 @@ spring:
     change-log: db/changelog/master.xml
   servlet:
     multipart:
-      max-file-size: 1GB
-      max-request-size: 1GB
+      max-file-size: 10MB
+      max-request-size: 10MB
 
   mvc:
     async:

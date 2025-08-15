@@ -66,6 +66,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ErrorResponseDTO("Ошибка в файловой системе"));
     }
 
+    @ExceptionHandler(FileSizeTooLargeException.class)
+    public ResponseEntity<ErrorResponseDTO> handleFileStorageException(FileSizeTooLargeException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
+    }
+
     @ExceptionHandler(ParentFolderNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleParentFolderNotFoundException(ParentFolderNotFoundException e) {
         throwLogError(e);

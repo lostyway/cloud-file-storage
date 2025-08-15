@@ -86,6 +86,11 @@ public class FileStorageService {
     @Transactional
     public UploadFileResponseDTO uploadFile(MultipartFile file, HttpServletRequest request) {
         try {
+            if (file.getSize() > 10 * 1024 * 1024) {
+                log.warn("Размер файла слишком большой: {}MB", file.getSize() / 1024 / 1024);
+                throw new FileSizeTooLargeException("Размер файла слишком большой");
+            }
+
             String token = jwtUtil.getTokenFromHeader(request)
                     .orElseThrow(() -> new JwtException("Invalid token"));
 

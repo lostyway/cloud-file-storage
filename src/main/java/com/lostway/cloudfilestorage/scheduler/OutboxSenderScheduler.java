@@ -7,7 +7,6 @@ import com.lostway.cloudfilestorage.repository.OutboxKafkaRepository;
 import com.lostway.cloudfilestorage.repository.UpdateFileRepository;
 import com.lostway.cloudfilestorage.repository.entity.OutboxKafka;
 import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
-import com.lostway.cloudfilestorage.service.UpdateStatusService;
 import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,6 @@ public class OutboxSenderScheduler {
     private final DocumentEventProducer documentEventProducer;
     private final OutboxKafkaRepository outboxKafkaRepository;
     private final KafkaMapper mapper;
-    private final UpdateStatusService updateStatusService;
     private final FileStorageService fileStorageService;
     private final UpdateFileRepository updateFileRepository;
 
@@ -74,7 +72,6 @@ public class OutboxSenderScheduler {
     /**
      * Очистка s3 от неактуальных данных, очищать лучше раз в неделю, для тестов раз в минуту
      */
-    //todo помечать в сервисе report после выдачи ответа что файл можно удалить спустя неделю (пометить статусом CONFIRM/FAILED).
     @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
     @Transactional
     @Async
