@@ -37,4 +37,10 @@ public class UpdateStatusService {
 
         return kafkaMapper.fromEntityToActualStatusResponseDTO(file);
     }
+
+    public String getFileName(UUID fileId) {
+        var found = updateFileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("Файл не был найден"));
+        return found.getFileName();
+    }
 }

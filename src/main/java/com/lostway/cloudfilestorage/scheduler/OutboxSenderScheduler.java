@@ -59,7 +59,6 @@ public class OutboxSenderScheduler {
      */
     @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
     @Transactional
-    @Async
     public void clearOutboxBase() {
         var outboxEvents = outboxKafkaRepository.getOldOutboxEvents(Pageable.ofSize(BATCH_SIZE));
         log.info("Отправленные events будут удалены по сроку годности: {}", outboxEvents.toArray());

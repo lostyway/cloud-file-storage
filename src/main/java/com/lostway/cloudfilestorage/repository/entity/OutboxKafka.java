@@ -25,6 +25,9 @@ public class OutboxKafka {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "jwt_token")
+    private String jwtToken;
+
     @Column(name = "file_id")
     private UUID fileId;
 

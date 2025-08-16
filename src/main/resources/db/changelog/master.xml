@@ -22,6 +22,7 @@
                 file_id        UUID PRIMARY KEY,
                 file_name      VARCHAR(255) NOT NULL,
                 full_path      VARCHAR(255) NOT NULL,
+                jwt_token      text,
                 content_type   VARCHAR(100),
                 file_size      BIGINT,
                 uploader_email VARCHAR(255),
@@ -43,11 +44,12 @@
         <sql>
             CREATE TABLE outbox_kafka
             (
-                id             BIGSERIAL PRIMARY KEY,
-                file_id   UUID,
-                payload        JSONB,
-                created_at     TIMESTAMP NOT NULL DEFAULT now(),
-                processed      BOOLEAN   NOT NULL DEFAULT false
+                id         BIGSERIAL PRIMARY KEY,
+                file_id    UUID,
+                jwt_token  text,
+                payload    JSONB,
+                created_at TIMESTAMP NOT NULL DEFAULT now(),
+                processed  BOOLEAN   NOT NULL DEFAULT false
             );
         </sql>
     </changeSet>

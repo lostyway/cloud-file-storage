@@ -29,6 +29,9 @@ public class UpdateFile {
     @Column(name = "full_path")
     private String fullPath;
 
+    @Column(name = "jwt_token")
+    private String jwtToken;
+
     @Column(name = "content_type")
     private ContentType contentType;
 

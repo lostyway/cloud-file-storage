@@ -27,9 +27,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**", "/instances/**", "/swagger-ui/**", "/login").permitAll()
                         .anyRequest().hasAnyRole("USER", "ADMIN"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(customAuthenticationEntryPoint))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }

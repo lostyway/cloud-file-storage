@@ -63,3 +63,5 @@ bootstrapserver: kafka:9092
 cleaner-outbox-base-schedule-cron: "0 0 3 * * SUN "
 
 scheduler-batch-size: 50
+
+iternal-jwt: eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiUk9MRV9BRE1JTiIsImlhdCI6MTc1NTM3MDM5NCwiYXVkIjoiQURNSU5TIiwiaXNzIjoiYXV0aC1zZXJ2aWNlIn0.yUd1FUQYUGixVDyvTlma6KnLVcE5EBDFrVhY7KzX-BM

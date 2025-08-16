@@ -16,11 +16,19 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 @SecurityScheme(
         name = "sessionAuth",
@@ -84,6 +92,21 @@ public class FileController {
     public ResponseEntity<ActualStatusResponseDTO> getActualStatus(
             @RequestParam("fileId") String fileId, HttpServletRequest request
     ) {
+        fileStorageService.createUserRootFolder(request);
         return ResponseEntity.ok(updateStatusService.getActualStatus(fileId, request));
+    }
+
+    @GetMapping("/download/{fileId}")
+    public ResponseEntity<Resource> download(
+            @PathVariable("fileId") UUID fileId, HttpServletResponse response
+    ) {
+        Resource resource = fileStorageService.downloadFile(fileId, response);
+        String fileName = updateStatusService.getFileName(fileId);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename*=UTF-8''" + URLEncoder.encode(fileName, StandardCharsets.UTF_8))
+                .body(resource);
     }
 }

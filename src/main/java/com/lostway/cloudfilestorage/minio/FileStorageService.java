@@ -25,6 +25,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -34,8 +36,6 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -122,7 +122,7 @@ public class FileStorageService {
             log.info("UpdateFile: {}", updateFile);
             updateFileRepository.save(updateFile);
 
-            FileUploadedEvent fileUpdateEvent = kafkaMapper.fromEntityToFileUpdateEvent(updateFile);
+            FileUploadedEvent fileUpdateEvent = kafkaMapper.fromEntityToFileUpdateEvent(updateFile, token);
             log.info("FileUploadedEvent: {}", fileUpdateEvent);
             OutboxKafka outboxKafka = kafkaMapper.fromDtoToEntity(fileUpdateEvent);
 
@@ -431,31 +431,25 @@ public class FileStorageService {
     /**
      * Метод для скачивания файлов
      *
-     * @param userPath путь до файла
      * @param response ответ пользователю (куда будет отправляться поток файлов, чтобы не хранить в JVM)
      * @return поток данных с запрашиваемым ресурсом
      */
-    private ResponseEntity<StreamingResponseBody> downloadFile(String userPath, HttpServletResponse response) {
-        response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
-        String headerValue = "attachment; filename*=UTF-8''" + URLEncoder.encode(getNameFromPath(userPath), StandardCharsets.UTF_8)
-                .replace("+", "%20");
+    public Resource downloadFile(UUID fileId, HttpServletResponse response) {
+        var updateFile = updateFileRepository.findByFileId(fileId)
+                .orElseThrow(() -> new RuntimeException("Файл не был найден"));
 
-        response.setHeader("Content-Disposition", headerValue);
-        StreamingResponseBody stream = out -> {
-            try (InputStream in = minioClient.getObject(
+        try {
+            InputStream in = minioClient.getObject(
                     GetObjectArgs.builder()
                             .bucket(bucketName)
-                            .object(userPath)
-                            .build())) {
-                in.transferTo(out);
-            } catch (Exception e) {
-                log.error("Ошибка при скачивании файла: downloadFolder, {} ", userPath, e);
-                throw new ResourceDownloadException("Ошибка при попытке скачать файл");
-            }
-        };
+                            .object(updateFile.getFullPath())
+                            .build());
 
-        return ResponseEntity.ok()
-                .body(stream);
+            return new InputStreamResource(in);
+        } catch (Exception e) {
+            log.error("Ошибка при скачивании файла: downloadFolder, {} ", updateFile.getFullPath(), e);
+            throw new ResourceDownloadException("Ошибка при попытке скачать файл");
+        }
     }
 
     /**
