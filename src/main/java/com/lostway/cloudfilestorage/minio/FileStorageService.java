@@ -134,15 +134,24 @@ public class FileStorageService {
                  InvalidFolderPathException | BadFormatException e) {
             throw e;
         } catch (Exception e) {
-            deleteFileIfExistAfterException(file, request);
+            String token = jwtUtil.getTokenFromHeader(request)
+                    .orElseThrow(() -> new JwtException("Invalid token"));
+
+            String email = jwtUtil.extractEmail(token);
+            deleteFileIfExistAfterException(file, email, request);
             throw new FileStorageException("Не удалось загрузить файл", e);
         }
     }
 
-    private void deleteFileIfExistAfterException(MultipartFile file, HttpServletRequest request) {
+    private void deleteFileIfExistAfterException(MultipartFile file, String email, HttpServletRequest request) {
         String fileName = getNameFromPath(getOriginalFileName(file));
         String normalizedPath = getStandardFullRootFolder(null, request, jwtUtil);
         String objectName = normalizedPath + fileName;
+
+        if (updateFileRepository.findByFullPathAndUploaderEmail(objectName, email).isPresent()) {
+            return;
+        }
+
         if (isFileExists(objectName)) {
             deleteFile(objectName);
         }
@@ -157,7 +166,7 @@ public class FileStorageService {
         if (isFileExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
             UpdateFile file = updateFileRepository.findByFullPathAndUploaderEmail(path, email)
-                    .orElseThrow(() -> new DocumentAlreadyExistsException("Файл уже существует"));
+                    .orElseThrow(() -> new DocumentAlreadyExistsException("Файл не существует в БД"));
 
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует. File id: %s".formatted(file.getFileId()));
         }

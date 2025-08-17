@@ -53,4 +53,11 @@
             );
         </sql>
     </changeSet>
+    <changeSet id="3" author="lostway">
+        <comment>Создание уникального индекса</comment>
+        <sql>
+            create unique index ux_upload_file_path_email
+                on uploaded_files (full_path, uploader_email);
+        </sql>
+    </changeSet>
 </databaseChangeLog>
