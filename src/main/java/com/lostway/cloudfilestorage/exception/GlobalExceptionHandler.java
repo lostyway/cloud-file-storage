@@ -93,13 +93,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({FileStorageNotFoundException.class, FolderNotFoundException.class})
     public ResponseEntity<ErrorResponseDTO> handleFileStorageNotFoundException(RuntimeException e) {
         throwLogError(e);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponseDTO("Ресурс не найден"));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponseDTO(e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         throwLogError(e);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO("Ошибка при вводе параметров"));
+    }
+
+    @ExceptionHandler(DocumentAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponseDTO> handleDocumentAlreadyExistsException(DocumentAlreadyExistsException e) {
+        throwLogError(e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponseDTO(e.getMessage()));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

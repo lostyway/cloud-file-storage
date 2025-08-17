@@ -130,7 +130,7 @@ public class FileStorageService {
             log.info("Outbox: {}", outbox);
 
             return new UploadFileResponseDTO(updateFile.getFileId().toString(), "Ваш документ принят! Отчет будет направлен на почту", email);
-        } catch (ResourceInStorageAlreadyExists | FileStorageNotFoundException | CantGetUserContextIdException |
+        } catch (ResourceInStorageAlreadyExists | DocumentAlreadyExistsException | CantGetUserContextIdException |
                  InvalidFolderPathException | BadFormatException e) {
             throw e;
         } catch (Exception e) {
@@ -157,7 +157,7 @@ public class FileStorageService {
         if (isFileExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
             UpdateFile file = updateFileRepository.findByFullPathAndUploaderEmail(path, email)
-                    .orElseThrow(() -> new FileStorageNotFoundException("Не удалось найти файл"));
+                    .orElseThrow(() -> new DocumentAlreadyExistsException("Файл уже существует"));
 
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует. File id: %s".formatted(file.getFileId()));
         }
