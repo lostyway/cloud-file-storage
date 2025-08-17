@@ -2,7 +2,7 @@ package com.lostway.cloudfilestorage.kafka;
 
 import com.lostway.cloudfilestorage.repository.UpdateFileRepository;
 import com.lostway.cloudfilestorage.repository.entity.UpdateFile;
-import com.lostway.jwtsecuritylib.kafka.FileStatusUpdatedEvent;
+import com.lostway.jwtsecuritylib.kafka.FileParsedWithCompanyEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,8 +17,8 @@ public class FileStatusConsumer {
 
     private final UpdateFileRepository updateFileRepository;
 
-    @KafkaListener(topics = "file-status-updated-topic", groupId = "file-status-service-group")
-    public void consume(FileStatusUpdatedEvent event) {
+    @KafkaListener(topics = {"file-status-updated-topic", "file-parsed-event-topic"}, groupId = "file-status-service-group")
+    public void consume(FileParsedWithCompanyEvent event) {
         Optional<UpdateFile> maybeFile = updateFileRepository.findById(event.fileId());
         if (maybeFile.isPresent()) {
             UpdateFile file = maybeFile.get();

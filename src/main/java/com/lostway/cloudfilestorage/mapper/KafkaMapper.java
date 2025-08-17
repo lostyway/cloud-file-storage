@@ -13,12 +13,12 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface KafkaMapper {
 
-    @Mapping(target = "jwtToken", source = "token")
-    FileUploadedEvent fromEntityToFileUpdateEvent(UpdateFile updateFile, String token);
+    FileUploadedEvent fromEntityToFileUpdateEvent(UpdateFile updateFile);
 
     List<FileUploadedEvent> fromEntitiesToFileUpdateEvents(List<UpdateFile> updateFiles);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "company", ignore = true)
     @Mapping(target = "fileId", source = "fileUploadedEvent.fileId")
     @Mapping(target = "payload", source = "fileUploadedEvent")
     @Mapping(target = "createdAt", source = "fileUploadedEvent.createdAt")

@@ -122,7 +122,7 @@ public class FileStorageService {
             log.info("UpdateFile: {}", updateFile);
             updateFileRepository.save(updateFile);
 
-            FileUploadedEvent fileUpdateEvent = kafkaMapper.fromEntityToFileUpdateEvent(updateFile, token);
+            FileUploadedEvent fileUpdateEvent = kafkaMapper.fromEntityToFileUpdateEvent(updateFile);
             log.info("FileUploadedEvent: {}", fileUpdateEvent);
             OutboxKafka outboxKafka = kafkaMapper.fromDtoToEntity(fileUpdateEvent);
 

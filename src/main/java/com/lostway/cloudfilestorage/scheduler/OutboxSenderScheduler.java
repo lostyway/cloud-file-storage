@@ -17,6 +17,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -60,7 +62,10 @@ public class OutboxSenderScheduler {
     @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
     @Transactional
     public void clearOutboxBase() {
-        var outboxEvents = outboxKafkaRepository.getOldOutboxEvents(Pageable.ofSize(BATCH_SIZE));
+        //todo позже заменить на неделю
+//        Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
+        Instant weekAgo = Instant.now().minus(Duration.ofMinutes(1));
+        var outboxEvents = outboxKafkaRepository.getOldOutboxEvents(weekAgo, Pageable.ofSize(BATCH_SIZE));
         log.info("Отправленные events будут удалены по сроку годности: {}", outboxEvents.toArray());
         outboxKafkaRepository.deleteAll(outboxEvents);
         log.info("Events удалены");
