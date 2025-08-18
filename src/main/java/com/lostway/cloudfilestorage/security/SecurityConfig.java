@@ -24,7 +24,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
-                        .requestMatchers("/actuator/**", "/instances/**", "/swagger-ui/**", "/login").permitAll()
+                        .requestMatchers("/actuator/**", "/instances/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().hasAnyRole("USER", "ADMIN"))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

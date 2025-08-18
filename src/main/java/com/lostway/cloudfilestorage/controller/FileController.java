@@ -6,13 +6,11 @@ import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
 import com.lostway.cloudfilestorage.service.UpdateStatusService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -28,12 +26,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-@SecurityScheme(
-        name = "sessionAuth",
-        type = SecuritySchemeType.APIKEY,
-        in = SecuritySchemeIn.COOKIE,
-        paramName = "JSESSIONID"
-)
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Cloud File Storage", description = "API для управления ресурсами (файлами/папками).")
 @RestController
 @RequestMapping("${api.url}")
@@ -45,7 +38,8 @@ public class FileController {
 
     @Operation(
             summary = "Загрузка документа",
-            description = "Загружает документ pdf/docx"
+            description = "Загружает документ pdf/docx/xlsx"
+
     )
     @ApiResponses({
             @ApiResponse(
@@ -59,9 +53,9 @@ public class FileController {
                     content = @Content(schema = @Schema(implementation = ErrorResponseDTO.class))
             )
     })
-    @PostMapping("/report")
+    @PostMapping(value = "/report", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<UploadFileResponseDTO> reportDoc(
-            @RequestParam(value = "file") MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             HttpServletRequest request
     ) {
         fileStorageService.createUserRootFolder(request);

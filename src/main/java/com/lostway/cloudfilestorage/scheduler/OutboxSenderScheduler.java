@@ -79,7 +79,10 @@ public class OutboxSenderScheduler {
     @Transactional
     @Async
     public void clearS3() {
-        var list = updateFileRepository.findAllByStatusIn(List.of(FileStatus.COMPLETED, FileStatus.FAILED));
+        //todo позже заменить на неделю
+//        Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
+        Instant weekAgo = Instant.now().minus(Duration.ofMinutes(1));
+        var list = updateFileRepository.findAllByStatusInAndCreatedAtAfter(List.of(FileStatus.COMPLETED, FileStatus.FAILED), weekAgo);
 
         log.info("Будут удалены даные из Бд и minio: {}", Arrays.toString(list.toArray()));
         if (list.isEmpty()) {
