@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -97,9 +96,9 @@ public class FileController {
 
     @GetMapping("/download/{fileId}")
     public ResponseEntity<Resource> download(
-            @PathVariable("fileId") UUID fileId, HttpServletResponse response
+            @PathVariable("fileId") UUID fileId
     ) {
-        Resource resource = fileStorageService.downloadFile(fileId, response);
+        Resource resource = fileStorageService.downloadFile(fileId);
         String fileName = updateStatusService.getFileName(fileId);
 
         return ResponseEntity.ok()
