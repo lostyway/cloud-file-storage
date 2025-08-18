@@ -5,7 +5,6 @@ import com.lostway.cloudfilestorage.controller.dto.UploadFileResponseDTO;
 import com.lostway.cloudfilestorage.exception.dto.ErrorResponseDTO;
 import com.lostway.cloudfilestorage.minio.FileStorageService;
 import com.lostway.cloudfilestorage.service.UpdateStatusService;
-import com.lostway.jwtsecuritylib.kafka.FileStatusUpdatedEvent;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -80,7 +79,7 @@ public class FileController {
             @ApiResponse(
                     responseCode = "202",
                     description = "Получение информации о статусе документа.",
-                    content = @Content(schema = @Schema(implementation = FileStatusUpdatedEvent.class))
+                    content = @Content(schema = @Schema(implementation = ActualStatusResponseDTO.class))
             ),
             @ApiResponse(
                     responseCode = "500",

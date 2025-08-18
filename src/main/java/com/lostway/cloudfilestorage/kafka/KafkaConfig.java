@@ -1,6 +1,6 @@
 package com.lostway.cloudfilestorage.kafka;
 
-import com.lostway.jwtsecuritylib.kafka.FileStatusUpdatedEvent;
+import com.lostway.jwtsecuritylib.kafka.FileParsedWithCompanyEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -46,20 +46,20 @@ public class KafkaConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, FileStatusUpdatedEvent> consumerFactory() {
+    public ConsumerFactory<String, FileParsedWithCompanyEvent> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "upload-service-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.lostway.jwtsecuritylib.kafka");
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, FileStatusUpdatedEvent.class);
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, FileParsedWithCompanyEvent.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, FileStatusUpdatedEvent> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, FileStatusUpdatedEvent> factory =
+    public ConcurrentKafkaListenerContainerFactory<String, FileParsedWithCompanyEvent> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, FileParsedWithCompanyEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         return factory;

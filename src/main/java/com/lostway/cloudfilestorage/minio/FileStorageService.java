@@ -181,6 +181,7 @@ public class FileStorageService {
         return switch (format) {
             case "pdf" -> ContentType.PDF;
             case "docx" -> ContentType.DOCX;
+            case "xlsx" -> ContentType.XLSX;
             default -> throw new BadFormatException("Неверный формат файла");
         };
     }

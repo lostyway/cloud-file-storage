@@ -1,7 +1,7 @@
 package com.lostway.cloudfilestorage.repository.entity;
 
 import com.lostway.cloudfilestorage.mapper.JsonConverter;
-import com.lostway.jwtsecuritylib.JsonConverter4;
+import com.lostway.jwtsecuritylib.JsonConverter3;
 import com.lostway.jwtsecuritylib.kafka.CompanyDto;
 import com.lostway.jwtsecuritylib.kafka.FileUploadedEvent;
 import jakarta.persistence.*;
@@ -35,7 +35,7 @@ public class OutboxKafka {
     @Column(name = "payload")
     private FileUploadedEvent payload;
 
-    @Convert(converter = JsonConverter4.class)
+    @Convert(converter = JsonConverter3.class)
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "company_payload")
     private CompanyDto company;
