@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,9 +61,7 @@ public class OutboxSenderScheduler {
     @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
     @Transactional
     public void clearOutboxBase() {
-        //todo позже заменить на неделю
-//        Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
-        Instant weekAgo = Instant.now().minus(Duration.ofMinutes(1));
+        Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
         var outboxEvents = outboxKafkaRepository.getOldOutboxEvents(weekAgo, Pageable.ofSize(BATCH_SIZE));
         log.info("Отправленные events будут удалены по сроку годности: {}", outboxEvents.toArray());
         outboxKafkaRepository.deleteAll(outboxEvents);
@@ -77,10 +74,7 @@ public class OutboxSenderScheduler {
      */
     @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
     @Transactional
-    @Async
     public void clearS3() {
-        //todo позже заменить на неделю
-//        Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
         Instant weekAgo = Instant.now().minus(Duration.ofMinutes(1));
         var list = updateFileRepository.findAllByStatusInAndCreatedAtAfter(List.of(FileStatus.COMPLETED, FileStatus.FAILED), weekAgo);
 

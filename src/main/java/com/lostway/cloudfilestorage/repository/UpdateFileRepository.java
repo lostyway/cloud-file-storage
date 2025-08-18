@@ -21,6 +21,7 @@ public interface UpdateFileRepository extends JpaRepository<UpdateFile, UUID> {
     Optional<UpdateFile> findByFullPathAndUploaderEmail(String fullPath, String email);
 
     @Lock(value = LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM UpdateFile u WHERE u.createdAt <= :createdAt AND u.status IN :statuses")
     List<UpdateFile> findAllByStatusInAndCreatedAtAfter(List<FileStatus> statuses, Instant createdAt);
 
     @Query("SELECT u.fullPath FROM UpdateFile u WHERE u.fileId = :fileId")
