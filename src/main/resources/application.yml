@@ -1,6 +1,14 @@
 spring:
   application:
     name: cloud-file-storage
+
+  spring:
+    data:
+      redis:
+        host: redis
+        port: 6379
+        timeout: 6000ms
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5438/filestorage}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}

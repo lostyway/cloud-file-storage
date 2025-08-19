@@ -1,4 +1,10 @@
 spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 6000ms
   datasource:
     url: jdbc:postgresql://localhost:5438/filestorage
     username: postgres
@@ -23,3 +29,6 @@ cleaner-outbox-base-schedule-cron: "0 * * * * *"
 
 bootstrapserver: localhost:29092
 
+logging:
+  level:
+    com.lostway.cloudfilestorage.*: debug

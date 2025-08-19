@@ -155,7 +155,7 @@ public class FileStorageService {
         if (isFileExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
             UpdateFile file = updateFileRepository.findByFullPathAndUploaderEmail(path, email)
-                    .orElseThrow(() -> new DocumentAlreadyExistsException("Файл не существует в БД"));
+                    .orElseThrow(() -> new DocumentAlreadyExistsException("Файл существует в хранилище, но не существует в БД"));
 
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует. File id: %s".formatted(file.getFileId()));
         }

@@ -70,9 +70,9 @@ public class OutboxSenderScheduler {
 
 
     /**
-     * Очистка s3 от неактуальных данных, очищать лучше раз в неделю, для тестов раз в минуту
+     * Очистка s3 от неактуальных данных
      */
-    @Scheduled(cron = "${cleaner-outbox-base-schedule-cron}")
+    @Scheduled(cron = "0 * * * * *")
     @Transactional
     public void clearS3() {
         Instant weekAgo = Instant.now().minus(Duration.ofMinutes(1));
