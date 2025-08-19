@@ -2,6 +2,7 @@ package com.lostway.cloudfilestorage.controller.dto;
 
 import com.lostway.jwtsecuritylib.kafka.enums.FileStatus;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -12,5 +13,5 @@ public record ActualStatusResponseDTO(
         Instant createdAt,
         Instant updatedAt,
         String notes
-) {
+) implements Serializable {
 }
