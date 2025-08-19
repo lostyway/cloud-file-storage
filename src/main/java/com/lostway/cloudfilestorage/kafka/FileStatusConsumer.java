@@ -19,7 +19,7 @@ public class FileStatusConsumer {
 
     @KafkaListener(topics = {"file-status-updated-topic", "file-parsed-event-topic"}, groupId = "file-status-service-group")
     public void consume(FileParsedWithCompanyEvent event) {
-        log.info("Получено сообщение: {}", event);
+        log.debug("Получено сообщение: {}", event);
         Optional<UpdateFile> maybeFile = updateFileRepository.findById(event.fileId());
         if (maybeFile.isPresent()) {
             UpdateFile file = maybeFile.get();

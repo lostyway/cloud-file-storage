@@ -44,7 +44,7 @@ public class OutboxSenderScheduler {
         events.stream()
                 .filter(Objects::nonNull)
                 .forEach(documentEventProducer::sendUploadedEvent);
-        log.info("Events отправлены: {}", events.toArray());
+        log.debug("Events отправлены: {}", events.toArray());
 
         var ids = outboxEvents.stream()
                 .filter(Objects::nonNull)
@@ -52,7 +52,7 @@ public class OutboxSenderScheduler {
                 .toList();
 
         int marked = outboxKafkaRepository.markEventsAsProcessed(ids);
-        log.info("Ивенты помечены как выполненные: {}", marked);
+        log.debug("Ивенты помечены как выполненные: {}", marked);
     }
 
     /**
@@ -63,9 +63,9 @@ public class OutboxSenderScheduler {
     public void clearOutboxBase() {
         Instant weekAgo = Instant.now().minus(Duration.ofDays(7));
         var outboxEvents = outboxKafkaRepository.getOldOutboxEvents(weekAgo, Pageable.ofSize(BATCH_SIZE));
-        log.info("Отправленные events будут удалены по сроку годности: {}", outboxEvents.toArray());
+        log.debug("Отправленные events будут удалены по сроку годности: {}", outboxEvents.toArray());
         outboxKafkaRepository.deleteAll(outboxEvents);
-        log.info("Events удалены");
+        log.debug("Events удалены");
     }
 
 
@@ -78,7 +78,7 @@ public class OutboxSenderScheduler {
         Instant weekAgo = Instant.now().minus(Duration.ofMinutes(1));
         var list = updateFileRepository.findAllByStatusInAndCreatedAtAfter(List.of(FileStatus.COMPLETED, FileStatus.FAILED), weekAgo);
 
-        log.info("Будут удалены даные из Бд и minio: {}", Arrays.toString(list.toArray()));
+        log.debug("Будут удалены даные из Бд и minio: {}", Arrays.toString(list.toArray()));
         if (list.isEmpty()) {
             return;
         }

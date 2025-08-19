@@ -20,7 +20,7 @@ public class MinioConfig {
 
     @Bean
     public MinioClient minioClient() {
-        log.info("Url: {}, AccessKey: {}, SecretKey: {}", url, accessKey, secretKey);
+        log.debug("Url: {}, AccessKey: {}, SecretKey: {}", url, accessKey, secretKey);
         return MinioClient.builder()
                 .endpoint(url)
                 .credentials(accessKey, secretKey)

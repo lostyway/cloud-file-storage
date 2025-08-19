@@ -58,7 +58,7 @@ public class FileStorageService {
             if (!found) {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
             }
-            log.info("Инициализация бакета прошла успешно");
+            log.trace("Инициализация бакета прошла успешно");
         } catch (Exception e) {
             log.error("Ошибка инициализации Minio бакета '{}'", bucketName, e);
             throw new FileStorageException("Ошибка инициализации хранилища файлов", e);
@@ -108,15 +108,15 @@ public class FileStorageService {
                     .updatedAt(Instant.now())
                     .build();
 
-            log.info("UpdateFile: {}", updateFile);
+            log.trace("UpdateFile: {}", updateFile);
             updateFileRepository.save(updateFile);
 
             FileUploadedEvent fileUpdateEvent = kafkaMapper.fromEntityToFileUpdateEvent(updateFile);
-            log.info("FileUploadedEvent: {}", fileUpdateEvent);
+            log.trace("FileUploadedEvent: {}", fileUpdateEvent);
             OutboxKafka outboxKafka = kafkaMapper.fromDtoToEntity(fileUpdateEvent);
 
             var outbox = outboxKafkaRepository.save(outboxKafka);
-            log.info("Outbox: {}", outbox);
+            log.trace("Outbox: {}", outbox);
 
             return new UploadFileResponseDTO(updateFile.getFileId().toString(), "Ваш документ принят! Отчет будет направлен на почту", email);
         } catch (ResourceInStorageAlreadyExists | DocumentAlreadyExistsException | CantGetUserContextIdException |
@@ -147,10 +147,10 @@ public class FileStorageService {
     }
 
     private ContentType validatePathAndCheckIsFileAlreadyExists(String path, String filename, String email) {
-        log.debug("Проверка корректности пути validatePathAndCheckIsFileAlreadyExists: {}", path);
+        log.trace("Проверка корректности пути validatePathAndCheckIsFileAlreadyExists: {}", path);
         validatePathToFile(path);
         ContentType type = validateFileFormat(filename);
-        log.debug("Проверка существования файла:, {}", path);
+        log.trace("Проверка существования файла:, {}", path);
 
         if (isFileExists(path)) {
             log.debug("Ресурс по такому пути уже существует!:, {}", path);
@@ -160,13 +160,13 @@ public class FileStorageService {
             throw new ResourceInStorageAlreadyExists("Ресурс по такому пути уже существует. File id: %s".formatted(file.getFileId()));
         }
 
-        log.info("Ресурс '{}' не существует по этому пути. Можно создавать", path);
+        log.trace("Ресурс '{}' не существует по этому пути. Можно создавать", path);
         return type;
     }
 
     private ContentType validateFileFormat(String filename) {
         String format = filename.split("\\.")[1];
-        log.debug("Формат файла: {}", format);
+        log.trace("Формат файла: {}", format);
         return switch (format) {
             case "pdf" -> ContentType.PDF;
             case "docx" -> ContentType.DOCX;
@@ -181,7 +181,7 @@ public class FileStorageService {
      * @param folderPath путь до папки которую нужно создать
      */
     private void makeEmptyFolder(String folderPath) {
-        log.debug("Создание пустой папки: {}", folderPath);
+        log.trace("Создание пустой папки: {}", folderPath);
         if (checkIsFolderExists(folderPath)) {
             log.debug("Объект уже существует: {}", folderPath);
             return;
@@ -196,7 +196,7 @@ public class FileStorageService {
                             .contentType(MediaType.APPLICATION_OCTET_STREAM_VALUE)
                             .build()
             );
-            log.debug("Пустая папка '{}' создана", folderPath);
+            log.trace("Пустая папка '{}' создана", folderPath);
         } catch (Exception e) {
             log.error("Не получилось создать пустую папку: {}", folderPath, e);
             throw new FileStorageException("Не получилось создать пустую папку", e);
@@ -273,7 +273,7 @@ public class FileStorageService {
                             .build()
             );
         }
-        log.info("Файл успешно загружен в '{}'", objectName);
+        log.debug("Файл успешно загружен в '{}'", objectName);
     }
 
     /**
@@ -289,7 +289,7 @@ public class FileStorageService {
                             .object(path)
                             .build()
             );
-            log.info("Удалён файл: {}", path);
+            log.debug("Удалён файл: {}", path);
         } catch (Exception e) {
             throw new FileStorageException("Ошибка при удалении файла", e);
         }

@@ -53,7 +53,7 @@ server:
 
 logging:
   level:
-    com.lostway.cloudfilestorage.*: debug
+    com.lostway.cloudfilestorage.*: info
 
 secret:
   key: verylongsecretkeyfromemvfilegitlab2025
